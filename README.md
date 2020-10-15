@@ -1,6 +1,9 @@
 
 Research NLP Projects
 This is a list of open-sourced projects Research NLP for Enhance survey of database cost model domain by Automatic Providing context.
+Project in NLP specialization. Bag of words model helps in reading text and predicting the category.
+
+
 
 Contributing
 
