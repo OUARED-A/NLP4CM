@@ -20,3 +20,17 @@ nltk
 numpy
 sklearn
 matplotlib
+
+Apply bag of words and Word2vec to sentiment analysis.
+
+Sentence representation
+Bag of words
+Logistic regression, support vector machine and feed-forward neural network
+Word2vec and sentence as the averaging of words vector
+Logistic regression, support vector machine
+Transfer learning of Google pre-trained model GoogleNews-vectors-negative300.bin.gz
+Python library dependency
+nltk and nltk stopwords corpus
+gensim
+tensorflow
+scikit-learn
