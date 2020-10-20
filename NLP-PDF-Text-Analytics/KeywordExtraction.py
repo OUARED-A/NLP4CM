@@ -52,9 +52,9 @@ def pdf_to_txt(file_path):
 text = pdf_to_txt('JavaBasics-notes.pdf')
 
 # some processing on the text
-text = text.replace("•", "")
+text = text.replace("â€¢", "")
 text = text.replace("Java Basics", "")
-text = text.replace("© 1996-2003 jGuru.com. All Rights Reserved.", "")
+text = text.replace("Â© 1996-2003 jGuru.com. All Rights Reserved.", "")
 text = " ".join(text.replace(u"\xa0", " ").strip().split()) 
 
 #creating a list of all the words present in the text file
