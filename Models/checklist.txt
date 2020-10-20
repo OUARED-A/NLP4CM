@@ -1,0 +1,43 @@
+the relational schema
+the deployment architectures of the DB is  centralized
+ the deployment architectures of the DB is  parallel
+the deployment architectures of the DB is  distribute
+ the Cost unit is IO Disk
+ the Cost unit is CPU time
+the storage device is SSD
+the storage device is HDD
+the SSD is integrated like extended Buffer 
+the SSD is integrated like Persisitant Buffer 
+the processing  device is CPU
+the CPU is ignored
+the Buffer is integrated
+the buffer management is LRU
+the optmization strutures is index 
+the optmization strutures is HP 
+the optmization strutures is MV 
+The  Model storage is row store 
+The  Model storage is colum store
+The  Data is compressed
+ The processing  model is  tuple-at-a-time
+The processing  model operator-ata-time
+The join algorithm is Hash Join   
+The join algorithm is sort Mege Join   
+The join algorithm is nested-loops join
+The aggregate algorithm is 
+The aggregate algorithm is sort based
+The aggregate algorithm is hash based
+The sorting algorithm is bitonic merge sort
+The sort algorithm is sort-merge join
+the latency is  negligible
+the bandwidth is  negligible
+No data compression
+No data compression
+ALL Intermediate  result in memory
+Some Intermediate  result in memory
+No  Intermediate  result in memory
+the  selection is isolated
+the  selection is combined
+the read/ write is symmetric
+
+
+
