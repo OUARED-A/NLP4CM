@@ -1,0 +1,242 @@
+Update on parametric cost models for space telescopes
+"Parametric cost models are used to plan missions, compare concepts and justify technology investments.  This paper"
+updates an on-going effort to develop cost modes for space telescopes and summarizes how recent database changes
+"have changed previously published preliminary results.  While the models are evolving, the previously published"
+findings are valid:  telescope cost increases with aperture diameter; it costs less per square meter of collecting aperture to
+build a large telescope than a small telescope; lower areal density telescopes cost more than more massive telescopes.
+"Keywords: Space Telescope Cost Model, Parametric Cost Model"
+Parametric cost models for space telescopes provide several benefits to designers and space system project managers.
+They identify major architectural cost drivers and allow high-level design trades.  They enable cost-benefit analysis for
+"technology development investment.  And, they provide a basis for estimating total project cost.  A survey of historical"
+"models found that there was no definitive space telescope cost model [1]. Thus, there is a need for parametric space"
+telescopes cost models.  An effort is underway to develop single variable [2] and multi-variable [3] parametric space
+telescope cost models based on the latest available data and applying rigorous analytical techniques.
+"After the single and multi-variable parametric models were published, the data base underwent an independent review."
+"The result of that review found several data points to be incorrect.  As a result, the data base has undergone a complete"
+review:  some telescopes were removed from the analysis; data for other telescopes was revised; and new telescopes
+"were added to the data base.  As a result of these changes, the cost models have changed.  But the general findings"
+remain unchanged:  aperture diameter is the primary cost driver for large space telescopes; it costs less per square meter
+of collecting aperture to build a large telescope than a small telescope; and it costs more per kg to build a low areal
+density telescope than a massive telescope.  One significant difference is that telescope cost is approximately 10% of
+total mission cost instead of 30%.
+2. CHANGES TO THE DATABASE
+"In Sept 2010, the NRO Cost Model Office reviewed our data base and, while they did not provide us with access to their"
+"database or give us any specific data, they did identify specific missions where our databases disagreed.  In response, we"
+"have systematically reviewed all missions in our database.  And, as a result, some missions have been temporarily"
+"removed from the database, while others have been revised (ranging from slight to dramatic).  Additionally, during the"
+past year we have added several new missions to the database.  The key to cost modeling is the data base.  And the key
+to the data base is being very precise in all definitions.
+Optical Telescope Assembly (OTA) is defined as the subsystem which collects electromagnetic radiation and focuses it
+"(focal) or concentrates it (afocal) into the science instruments.  An OTA consists of the primary mirror, secondary"
+"mirror, auxiliary optics and support structure (such as optical bench or truss structure, primary support structure,"
+"secondary support structure or spiders, mechanisms for adjusting the optical components, straylight baffles, etc.).  An"
+OTA does not include science instruments or spacecraft subsystems.  A science instrument (SI) is defined as the
+"subsystem which converts electromagnetic radiation into data.  A SI includes conditioning optics (e.g. beam splitters, re-"
+"imaging optics, spectral filters, dispersive elements, etc.), mechanisms, detectors, focal planes, and electronics."
+Consistency with this definition is exactly the problem with the old data base.  While the cost data for large missions
+"(Hubble, Kepler, JWST, etc.) were clearly for just the OTA, the cost data for the smaller missions (GALEX, IUE,"
+TRACE and WIRE) were for „instruments‟ where an instrument was defined to be an integrated system consisting of an
+OTA and a SI.  Removing the science instrument costs dramatically reduced the OTA cost for these missions.
+"Additionally, we have chosen to exclude thermal/cryogenic control systems from the definition of an OTA.  For"
+"example, the JWST OTA does not include the cost of the JWST Sunshade.  Conforming to this definition resulted in"
+another change to the database.  The „old‟ IRAS and Spitzer OTA costs included the cryogenic system.  Removing these
+"costs dramatically changed the old data points.  Please note, in the future, we plan to review this decision.  It does not"
+"seem logical that an infrared OTA has much utility without a thermal/cryogenic control system.  And, while it is a small"
+"cost element, ambient OTAs also require thermal control systems."
+"OTA Cost is defined as prime contractor cost to design, build and integrate the OTA.  OTA cost includes allocated"
+subsystem level management and systems engineering as well as program level costs which can be allocated to the
+"subsystem.  OTA cost does include NASA labor if NASA personnel participated in these functions, as in the case of the"
+"OAO telescopes.  But OTA cost does not include NASA labor if that labor is strictly insight/oversight, as in the case of"
+"JWST, Hubble, Kepler, etc.  Total mission cost is defined as Phase A-D, excluding:  launch cost; costs associated with"
+"NASA labor (civil servant or support contractors) for program management, technical insight/oversight; or any NASA"
+"provided ground support equipment, e.g. test facilities.  Including NASA costs would add at least 10% and maybe as"
+much as 33%.
+"After careful review of source CADRe Documents (Cost Analysis Data Requirements), we made the following changes"
+"to the database.  We increased the cost of Kepler and Wise to include program management, systems engineering and"
+"integration and test cost.  We decreased the cost of GALEX, HiRISE, HUT, OAO-3, UIT, WIRE, and WUPPE to"
+remove science instrument costs.  We decreased the cost of IRAS and Spitzer by separating cryostat and OTA cost.  We
+decreased the cost of SOFIA by removing the cost of the gimbal structure which holds the SOFIA OTA in the 747
+"airframe.  We added cost data for the CloudSAT, OAO-B/GEP, Herschel and Planck missions.  Finally, we reduced the"
+"cost of both Hubble OTA and Total Missions costs (Table 1).  Previously, we had excluded the cost of the fine guidance"
+"sensor (FGS) from the OTA cost, because we believe that this cost should be allocated to the spacecraft.  But we had not"
+"properly excluded management and systems engineering costs allocated to the FGS.  Also, our previous Total Mission"
+cost probably included Phase E operations costs.
+"",Table 1: Refinement of Hubble Cost Knowledge
+Cost Element,Old Revised Notes
+"",(FY11$) (FY11$)
+Total Cost Phase A-D,$ 4.0 B $2.8 B Old: NGST Cost Model Database
+Total OTA,$ 0.9 B $ 0.9 B
+OTA,$ 0.7 B $ 0.47 B Old:  allocated FGS and C&DH PM & SE costs to
+"",OTA
+Optics,$ 0.07 B
+Optics Control,$ 0.08 B
+Optical Structure,$ 0.08 B
+Electrical Power,$ 0.02 B
+"",New: REDSTAR 121-4742
+"Structures, mechanisms, support",$ 0.05 B
+equipment,
+System Level 53%,$ 0.14 B
+ST Level 53%,$ 0.01 B
+FGS,$ 0.26 B New: REDSTAR 121-4742
+"",$ 0.2
+C&DH,$ 0.08 B New: REDSTAR 121-4742
+Thermal Control,$ 0.01 B New: REDSTAR 121-4742
+System Level 47%,$ 0.12 B New: REDSTAR 121-4742
+ST Level 47%,$ 0.01 B New: REDSTAR 121-4742
+Total SSM,$1.14 B New: REDSTAR 121-4742
+Science Instruments,$0.5 B New: REDSTAR 123-1064 (page 108)
+ESA Contribution,$0.25 B New: REDSTAR 123-1064 (page 108)
+Total Cost Phase A-E,$ 5.1 B $ 4.6 B Old:  NGST Cost Model
+Launch,$0.62 B New: REDSTAR 123-1064 (page 108)
+Phase E,$ 1.2 B New:  REDSTAR 123-1064 (Page 108 & 122)
+Note: Totals may not tie due to rounding,
+Table 2:  UV/OIR Cost Model Missions Database
+4. SINGLE VARIABLE MODEL
+Single variable models are created by regressing OTA cost data versus parameters which are selected based on their
+correlation with OTA cost (Figure 2).  Each regression is then evaluated for its „Goodness of Fit‟ and „Significance‟ via
+2
+"a range of statistical measures, including Pearson‟s r  coefficient, Student T-Test p-value and standard percent error"
+2 2
+"(SPE).  Pearson‟s r  (typically denoted as just r ) describes the percentage of agreement between the model and the"
+2 2
+"actual cost.  For multi-variable models, we use Adjusted Pearson‟s r  (or r adj) which accounts for the number of data"
+2 2
+"points and the number of variables.  In general, the closer r  (or r adj) is to 1.0 or 100%, the better the model.  SPE is a"
+"normalized standard deviation of the fit residual (difference between data and fit) to the fit.  The closer SPE is to 0, the"
+"better the fit.  Please note that since SPE is normalized, a small variation divided by a very small parameter coefficient"
+can yield a very large SPE.  The p-value is the probability that a fit or correlation would occur if the variables are
+"independent of each other.  The closer the p-value is to 0, the more significant the fit or correlation.  The closer it is to 1,"
+"the less significant.  If the p-value for a given variable is small, then removing it from the model would cause a large"
+"change to the model.  If it is large, then removing the variable will have a negligible effect.  Also, it is important to"
+"consider how many data points are included in a given correlation, fit or regression."
+"For the 8.1.11 database, the variables which yield a significant regression for OTA cost are:  aperture diameter, primary"
+"mirror focal length, OTA volume, pointing stability and OTA mass.  Of these, OTA mass has the smallest SPE.  While"
+"this author does not agree, many cost models only use mass to estimate cost.  Therefore, we will investigate a mass"
+"model in Section 4.2.  All of the other variables are correlated with aperture.All OTAs tend to have similar F/#s.  Thus,"
+"larger apertures have longer focal lengths and of course larger volumes.  Also, pointing stability is proportional to"
+"resolution which is defined by aperture diameter.  Therefore, in Section 4.1 we will investigate aperture models."
+4.1 Single Variable Aperture Model
+This section presents aperture model results for the revised database without comparison to the previous results.  While
+"the exponent of the model has changed, none of the previous conclusions have changed.  From an engineering and a"
+"scientific perspective, aperture is the best parameter with which to build a space telescope cost model.  Aperture defines"
+the observatory‟s science performance (sensitivity and resolution) and determines the payload‟s size and mass.  Since the
+2
+"aperture exponent is still less than 2, cost increases with Aperture at a rate less than D .  Thus larger telescopes cost less"
+"per area than smaller telescopes.  As shown in Figure 3, for 15 free-flyer missions (excluding WIRE), we obtain the"
+following cost estimating relationship (CER):
+1.4 2
+OTA Cost ~ Diameter (N = 15; r  = 82%; SPE = 123)
+"This model based only on aperture diameter accounts for 82% of the cost variation in the real data, but it is noisy."
+"As with the previous publications, we are regressing OTA cost verses aperture diameter for only free flying missions."
+"Attached missions continue to have a cost relationship whose slope is parallel to the free flyer cost slope, but whose"
+"leading coefficient is lower.  The implication is that attached missions, which are more massive than free flying"
+"missions, are lower cost.  Changes in the database uniformly reduced the cost of small aperture missions, including the"
+"attached.  Additionally, given doubt about the accuracy of WIRE, we are excluding it from the regression."
+"One concern about cost versus diameter is that JWST drives the fit.  As a simple sanity check, the data was normalized"
+by collecting area to define Areal Cost (cost per square meter) (Figure 4).  We have extended this previous analysis to
+"include ground telescopes, and the result is the same.  Larger aperture telescopes cost less per square meter than smaller"
+"aperture telescopes.  Given that the number of collected photons is proportional to collecting area, larger aperture"
+telescopes have a greater return on investment (ROI) than smaller aperture telescopes.
+"Finally, a regression of mission total cost versus aperture diameter yields a CER of:"
+1 2
+Total Cost ~ Diameter (N = 18; r  = 89%; SPE = 79)
+The most interesting result of this regression is that the exponent is 1.  Total mission cost as a function of aperture
+diameter is „flatter‟ than OTA cost.  The implication is that for smaller aperture missions other costs (maybe spacecraft)
+dominate the mission cost.This is consistent with the earlier finding that OTA cost is only 10% of total mission cost.
+4.2 Single Variable Mass Model
+This section presents mass model results for the revised database without comparison to the previous results.  While the
+"exponent of the model has changed, none of the previous conclusions have changed.  Although an aperture based CER is"
+"logical for an optical engineer, many believe that Mass is the more important CER.  Total system mass determines what"
+"vehicle can be used to launch the mission.  And, significant engineering costs are expended to keep a given payload"
+"inside of its allocated mass budget, for example: light-weighting mirrors and structure.  It is factual to assert that space"
+"telescopes are designed to meet a specific mass budget.  As shown in Figure 5, for 13 free-flyer mission (excluding"
+"attached OTAs), we obtain the following CER:"
+1.1 2
+OTA Cost ~ OTA Mass (N = 13; r  = 87%; SPE = 58%)
+"The mass model accounts for 87% of the variation in the real data.  And, it is less noisy than the aperture model."
+A very interesting tool for analyzing the role of mass on cost is cost density (cost per kg).  Figure 6 plots OTA cost per
+kg versus OTA aperture diameter.  Several obvious conclusions can be drawn from Figure 6.  All free flying space
+"telescopes have approximately the same cost per kg – independent of aperture diameter.  And, all ground telescopes also"
+have approximately the same cost per kg – independent of aperture diameter.  Space telescopes cost about 1000X per kg
+"more than ground telescopes – independent of aperture diameter.  Additionally, UIT, WUPPE and HIT which flew"
+"„attached‟ to the space shuttle are 2X less expensive per kg.  And, SOFIA which flies attached to a 747 is 15X less"
+expensive.  One explanation for this data might be that each of these mission „types‟ are built to different design rules.
+"While all three types need similar wavefront shape and pointing stabilities as a function of aperture diameter, they have"
+"different static gravity and dynamic jitter environments.  And, they have different mass budgets with which to achieve"
+the required wavefront shape and pointing stability.
+Another wavelength story is Herschel and Kepler (Figure 5).  Herschel and Kepler have essentially the same mass and
+"cost, but vastly different apertures, diffraction limits and operating temperatures.  Based only on aperture, Herschel"
+"should be more expensive than Kepler, but it has a significantly longer diffraction limit and lower operating temperature."
+A final caution about using mass as a CER can be found by considering HST vs JWST (Figure 7).  When considering
+"OTA mass, HST and JWST OTAs have similar mass and thus should have similar cost, but JWST‟s OTA is 2X more"
+"expensive than HST.  And, when considering total mission mass, HST‟s mass is 2X greater than JWST‟s mass.  Thus,"
+"from purely a mass model, HST should cost 2X more than JWST.  But in fact JWST is 2X more than HST.  The reason"
+is complexity.  JWST is more complex than HST.
+"Again, the problem with using mass as a CER for space telescopes is that it is not an independent parameter.  It depends"
+"on aperture diameter.  The bigger the aperture, the more massive the telescope must be to support the mirror, to achieve"
+"the required pointing stability, etc.  Also, bigger aperture telescopes typically have bigger science instruments, require"
+more power and have bigger spacecraft.
+5. MULTI-VARIABLE MODELS
+Given that the single variable aperture model accounts for only 82% of the actual OTA cost variation and is somewhat
+"noisy, it is necessary to look at multi-variable models.  To develop a multi-variable model, we regress the data for"
+diameter and candidate second variables (Figure 8).  A good two variable model is one where the second variable is not
+"collinear with aperture diameter (this excludes OTA mass, Primary Mirror Focal Length and OTA Volume); and, where"
+the addition of a second variable is significant and does not make the aperture variable insignificant.  The variables
+"which meet these two conditions are:  Area Density, Spectral Minimum, Diffraction Limit and Design Life.  Of these,"
+2
+the two variable model with the highest adjusted r  and the lowest SPE is Diffraction Limited Wavelength:
+1.5 -0.2 2
+OTA Cost ~ OTA Diameter  λ   (N = 12; r  = 98%; SPE = 60%)
+It is interesting to note that the Diameter exponent is slightly larger than for the single variable model.  This is because
+"for our data set, the larger aperture missions are longer wavelength missions.  Thus, the cost increase for a larger"
+aperture is compensated by a cost decrease for a longer diffraction wavelength.  The -0.2 exponent on wavelength
+predicts that a 10X longer wavelength OTA costs 40% less.
+"This two-variable model is different from our previously published two-variable model.  Previously, we had not found a"
+"wavelength dependency.  And, previously, we had found a year of development dependency.  We continue to investigate"
+"",,,,,,rd
+year of,development,as,,a potential,,3 variable.
+"Additionally,",,we are,,finding,that,operating
+"",,,,,,rd
+wavelength is a potential significant 3,,,,,,variable –
+this too is different from our previous results.,,,,,,
+"Finally,",it is,interesting,,to note,the,regression
+results for,Design,Life,,and also,Areal,Density.
+The authors,,tend to discount,,the,areal,density
+regression,for,two reasons.,,"First,",,it should be
+collinear with aperture - since it is simply mass,,,,,,
+divided by collecting area.  We don‟t exactly know,,,,,,
+why the,regression,does,,not report,,it as being
+"collinear, but we observed a similar effect when",,,,,,
+"we used F/# as a second variable.  Second, the",,,,,,
+exponent,violates,engineering,,,judgment,– it
+implies that a more massive areal density will cost,,,,,,
+more.  The Design Life result is confusing on two,,,,,,
+counts and,requires,further,,study.,,"First, it is"
+unclear,why,the diameter,,exponent,,dropped by
+"such a large amount.  And second, the design life",,,,,,
+exponent implies that a 10 yr mission is only 10%,,,,,,
+more expensive than a 1 year mission.,,,,,,
+6. CONCLUSIONS,
+Parametric cost models for space telescopes provide several benefits to designers and space system project managers.,
+They identify major architectural cost drivers and allow high-level design trades.  They enable cost-benefit analysis for,
+"technology development investment. And, they provide a basis for",estimating total project cost. Based on an
+"independent review of our database, we undertook a one year careful review and reconciliation of our database with",
+"source documents.  As a result, there have been changes to our previously published models.  But our general findings",
+remain unchanged:  aperture diameter is the primary cost driver for large space telescopes; it costs less per square meter,
+of collecting aperture to build a large telescope than a small telescope; and it costs more per kg to build a low areal,
+density telescope than a massive telescope.  One significant difference is that telescope cost is approximately 10% of,
+total mission cost instead of 30%.,
+This paper reports three OTA Cost Models:,
+"",1.4 2
+OTA Cost ~ Diameter,(N = 15; r  = 82%; SPE = 123)
+"",1.5 -0.2 2
+OTA Cost ~ OTA Diameter,λ (N = 12; r  = 98%; SPE = 60%)
+"",1.1 2
+OTA Cost ~ OTA Mass,(N = 13; r  = 87%; SPE = 58%)
+"Of these, the diameter and wavelength model is probably the most correct.  But, it is still a work in progress."
+"Finally, we continue to find that telescopes designed to a larger mass budget have a lower cost.  Space telescopes cost"
+"about 1000X per kg more than ground telescopes – independent of aperture diameter.  Additionally, UIT, WUPPE and"
+"HIT which flew „attached‟ to the space shuttle are 2X less expensive per kg.  And, SOFIA which flies attached to a 747"
+is 15X less expensive.  One explanation might be that it requires significantly more „engineering‟ effort to design a low
+areal density telescope with the required wavefront shape and pointing stability for its operational (static gravity load and
+dynamic jitter) environment than it does for a high areal density telescope.
