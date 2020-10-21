@@ -1,0 +1,917 @@
+Generic Database Cost Models for Hierarchical Memory Systems
+Database cost models provide the foundation for query op-
+timizers to derive an efficient execution plan. Such models
+consist of two parts: a logical and a physical component.
+The former is geared toward estimation of the data volumes
+"involved. Usually, statistics about the data stored in the"
+database are used to predict the amount of data that each
+operator has to process. The underlying assumption is that
+a query plan that has to process less data will also consume
+less resources and/or take less time to be evaluated. The
+logical cost component depends only on the data stored in
+"the database, the operators in the query, and the order in"
+which these operators are to be evaluated (as specified by
+"the query execution plan). Hence, the logical cost compo-"
+nent is independent of the algorithm and/or implementation
+used for each operator.
+The problem of (intermediate) result size estimation has
+"been intensively studied in literature [11, 5, 12]. In this ar-"
+"ticle, we focus on the physical cost component. Therefore,"
+we assume a perfect oracle to predict the data volumes.
+"Given the data volumes, the physical cost component is"
+needed to discriminate the costs of the various algorithms
+and implementations of each operator. The query optimizer
+uses this information to choose the most suitable algorithm
+and/or implementation for each operator.
+Given the fact that disk-access used to be the predomi-
+"nant cost factor, early physical cost functions just counted"
+the number of I/O operations to be executed by each algo-
+rithm [4]. Any operation that loads a page from disk into
+the in-memory buffer pool or writes a page from the buffer
+"back to disk is counted as an I/O operation. However, disk"
+systems depict significant differences in cost (in terms of
+time) per I/O operation depending on the access pattern.
+Sequentially reading or writing consecutive pages causes
+less cost per page than accessing scattered pages in a ran-
+"dom order. Hence, more accurate cost models discriminate"
+between random and sequential I/O. The cost for sequen-
+tial I/O is calculated as the data volume1 divided by the I/O
+bandwidth. The cost for random I/O additionally considers
+the seek latency per operation.
+With memory chips dropping in price while growing in
+"capacity, main memory sizes grow as well. Hence, more"
+"and more query processing work is done in main memory,"
+trying to minimize disk access as far as possible in order
+Accurate prediction of,operator execution,,time
+is a prerequisite for,database query,optimiza-,
+tion. Although extensively,studied,for,conven-
+"tional disk-based DBMSs, cost modeling in main-",,,
+memory DBMSs is still,an open issue.,,Recent
+database research has demonstrated that memory,,,
+access is more and more becoming a significant—,,,
+if not the major—cost component of database op-,,,
+"erations. If used properly,",fast but,small,cache
+memories—usually organized in,cascading hier-,,
+archy between CPU and main memory—can help,,,
+to reduce memory access,"costs. However,",,they
+make the cost estimation problem more complex.,,,
+"In this article, we propose a generic technique to",,,
+create accurate cost functions for database opera-,,,
+tions. We identify a few basic memory access pat-,,,
+terns and provide cost functions that estimate their,,,
+access costs for each level of the memory hierar-,,,
+chy. The cost functions are parameterized to ac-,,,
+commodate various hardware characteristics,,,ap-
+"propriately. Combining the basic patterns, we can",,,
+describe the memory access patterns of database,,,
+operations. The cost functions of database opera-,,,
+tions can automatically be derived by combining,,,
+the basic patterns’ cost functions accordingly.,,,
+"To validate our approach,",we performed experi-,,
+ments using our DBMS prototype Monet. The re-,,,
+sults presented here confirm the accuracy of our,,,
+cost models for different operations.,,,
+"Aside from being useful for query optimization,",,,
+our models provide insight to tune algorithms not,,,
+"only in a main-memory DBMS, but also in a disk-",,,
+based DBMS with a,large main-memory buffer,,
+cache.,,,
+2 Hierarchical Memory Systems,
+2.1 Cache Memories,
+The fundamental principle of all cache architectures is “ref-,
+erence locality”. The assumption is that at,any time the
+"CPU, respectively the program, repeatedly accesses only a",
+limited amount of data that fits in the cache. Only the first,
+"access is “slow”, as the data has to be loaded from main",
+memory. We call this a compulsory cache miss.,Subse-
+quent accesses (to the same data or memory addresses) are,
+then “fast” as the data is then available in the cache.,We
+call this a cache hit.,
+Cache memories are often organized in multiple cascad-,
+ing levels between the main memory and the CPU. We re-,
+"fer to the individual caches as first level (L1) cache, second",
+"level (L2) cache, and so on. In nowadays computers, there",
+"are typically two or three cache levels. Often, L1 and L2",
+"are integrated on the CPU’s die, while L3—if present—is",
+"located on the system board. Caches become faster,",but
+"smaller, the closer they are to the CPU.",
+Caches are characterized by three major,parameters:
+"Capacity ( ), Line Size ( ), and Associativity (",):
+Capacity ( ). A cache’s capacity defines its total size,
+in bytes. Typical cache sizes range from 16 KB to 8 MB.,
+Line Size ( ). Caches are organized in,"cache lines,"
+which represent the smallest unit of transfer between ad-,
+"jacent cache levels. Whenever a cache miss occurs, a com-",
+"plete cache line (i.e., multiple consecutive words) is loaded",
+"from the next cache level or from main memory,",trans-
+ferring all bits in the cache line in parallel,over a wide
+"bus. This exploits spatial locality, increasing the chances",
+of cache hits for future references to data that is ”closed to”,
+the reference that caused a cache miss. Typical cache line,
+sizes range from 16 bytes to 128 bytes.,
+"Dividing the cache capacity by the cache line size, we",
+get the number of available cache lines in the cache:,
+". Cache lines are often also called cache blocks.",
+Associativity ( ). To which cache line the memory is,
+"loaded, depends on the memory address and on the cache’s",
+associativity. An -way set associative cache,allows to
+load a line in different positions. If,", some cache"
+replacement policy chooses one from the,candidates.
+Least Recently Used (LRU) is the most common replace-,
+"ment algorithm. In case , we call the cache direct-",
+mapped. This organization causes the least (virtually no),
+overhead in determining the cache line candidate.,How-
+"ever, it also offers the least flexibility and may cause a lot",
+of conflict misses: Equally aligned addresses mutually evict,
+"each other from the cache, even if the cache capacity is not",
+reached. The other extreme case are fully associative,
+"caches. Here, each memory address can be loaded to any",
+"line in the cache ( ). This avoids conflict misses, and",
+only capacity misses occur as the cache capacity gets ex-,
+"ceeded. However, determining the cache line candidate in",
+this strategy causes a relatively high overhead that increases,
+"with the cache size. Hence, it is feasible only for smaller",
+caches. Current PCs and workstations typically implement,
+2-way to 8-way set associative caches.,
+"to avoid the I/O bottleneck. Consequently, the contribution"
+of pure CPU time to the overall query evaluation time be-
+comes more important. Cost models are extended to model
+"CPU costs, usually in terms of CPU cycles (scored by the"
+CPU’s clock speed to obtain the elapsed time).
+"CPU cost used to cover memory access costs [6, 17]."
+This implicitly assumes that main memory access costs are
+"uniform, i.e., independent of the memory address being"
+accessed and the order in which different data items are
+"accessed. However, recent database research has demon-"
+"strated that this assumption does not hold (anymore) [2, 7]."
+"With hierarchical memory systems being used, access la-"
+"tency varies significantly, depending on whether the re-"
+"quested data can be found in (any) cache, or has to be fetch"
+from main memory. The state (or contents) of the cache(s)
+"in turn depends on the applications’ access patterns, i.e.,"
+the order in which the required data items are accessed.
+"Furthermore, while CPU speed is continuously experienc-"
+"ing an exponential growth, memory latency has hardly im-"
+"proved over the last decade.2 Hence, memory access has"
+become a significant cost factor—not only for main mem-
+ory databases—which cost models need to reflect.
+"In query execution, the memory access issue has been"
+addressed by designing new cache-conscious data struc-
+"tures [13, 14, 1] and algorithms [15, 8]. On the modeling"
+"side, however, nothing has been published yet considering"
+memory access appropriately.
+"In this article, we address the problem of how to model"
+memory access costs of database operators. As it turns
+out to be quite complicated to derive proper memory ac-
+"cess cost functions for various operations, we developed a"
+new technique to automatically derive such cost functions.
+The basic idea is to describe the data access behavior of
+an algorithm in terms of a combination of basic access pat-
+terns (such as ”sequential” or ”random”). The actual cost
+function is then obtained by combining the patterns’ cost
+functions (as derived in this article) appropriately. Using a
+unified hardware model that covers the cost-related charac-
+"teristics of both main memory and disk access, it is straight"
+forward to extend our approach to consider I/O cost as well.
+Gathering I/O and memory cost models into a single com-
+mon framework is a new approach that simplifies the task
+of generating accurate cost functions.
+"In Section 2, we will discuss hierarchical memory sys-"
+tems and introduce our unified hardware model. Section 3
+will present a simplified abstract representation of data
+structures and identify a number of basic access patterns.
+"Using these tools, we will specify the data access patterns"
+of database algorithms by combining basic patterns. In
+"Section 4, we will derive the cost functions for our basic"
+access patterns and Section 5 provides rules how to obtain
+the cost functions of compound access patterns. Section 6
+contains some experimental results validating the obtained
+cost functions and Section 7 will draw some conclusions.
+description unit,,symbol,
+cache name (level) -,,,
+cache capacity [bytes],,,
+cache block size [bytes],,,
+number of cache lines -,,,
+cache associativity -,,,
+sequential access,,,
+access bandwidth [bytes/ns],,,
+access latency [ns],,,
+random access,,,
+access latency [ns],,,
+access bandwidth [bytes/ns],,,
+Table 1: Cache Parameters (,,,)
+2.2 Memory Access Costs,,
+We identify the following three aspects,that,determine
+"memory access costs. For simplicity of presentation, we",,
+assume 2 cache levels in this section. Generalization to an,,
+arbitrary number of caches is straight forward.,,
+Latency is the time span that passes after issuing a data,,
+access until the requested data is available in the CPU. In,,
+"hierarchical memory systems, the latency",increases,with
+the distance from the CPU. As mentioned,,"above, all"
+current hardware actually transfers multiple,consecutive,
+"words, i.e., a complete cache line, during this time.",,
+When a CPU requests data from a certain memory ad-,,
+"dress, modern DRAM chips supply not only the requested",,
+"data, but also the data from subsequent addresses. The data",,
+is then available without additional address request.,,This
+feature is called Extended Data Output (EDO). Anticipat-,,
+"ing sequential memory access, EDO reduces the effective",,
+"latency. Hence, we actually need to distinguish two types",,
+of latency for memory access. Sequential access latency,,
+"( ) occurs with sequential memory access, exploiting the",,
+"EDO feature. With random memory access, EDO does not",,
+"speed up memory access. Thus, random access latency",,
+is usually higher than sequential latency.,,
+Bandwidth is a metric for the data volume (in mega-,,
+bytes) that can be transfered between CPU and main mem-,,
+ory per second. Bandwidth usually decreases with the dis-,,
+"tance from the CPU, i.e., between L1 and L2 more data can",,
+be transfered per time than between L2 and main memory.,,
+"In conventional hardware, the memory bandwidth used to",,
+be simply the cache line size divided by the memory la-,,
+tency. Modern multiprocessor systems typically,,provide
+"excess bandwidth capacity. To exploit this,",caches need,
+"to be non-blocking, i.e., they need to allow more than one",,
+"outstanding memory load at a time, and",the CPU,has to
+be able to issue subsequent load requests while waiting for,,
+"the first one(s) to be resolved. Further, the access pattern",,
+"needs to be sequential, in order to exploit the EDO feature",,
+as described above.,,
+"Indicating its dependency on sequential access, we re-",,
+fer to the excess bandwidth as sequential access bandwidth,,
+"( ). We define the respective sequential",access,latency
+as . For random access latency as,,described
+"above, we define the respective random access bandwidth",,
+"as . For better readability, we will simply use",,
+"plain and (i.e., without respectively",) whenever we,
+refer to both sequential and random access without explic-,,
+itly distinguishing between them.,,
+"Address translation. For data access,",logical virtual,
+memory addresses used by application code,have,to be
+translated to physical page addresses in the main memory,,
+"of the computer. In modern CPUs, a Translation Looka-",,
+side Buffer (TLB) is used as a cache for physical page ad-,,
+"dresses, holding the translation for the most recently used",,
+pages (typically 64). If a logical address is,found in,the
+"TLB, the translation has no additional costs.","Otherwise, a",
+"TLB miss occurs. The more pages an application uses, the",,
+higher the probability of TLB misses.,,
+"We will treat TLBs just like memory caches, using the"
+"memory page size as their cache line size, and calculating"
+their (virtual) capacity as !#%' + - /0 3 6 8 /:; .
+"TLBs are usually fully associative. Like caches, TLBs can"
+be organized in multiple cascading levels.
+2.3 Unified Hardware Model
+"Summarizing our previous discussion, we describe a com-"
+puters memory hardware as a cascading hierarchy of lev-
+els of caches (including TLBs). Each cache level is char-
+"acterized by the parameters given in Table 1.3 In [8], we"
+presented a system independent C program called Calibra-
+tor4 to measure these parameters on any computer hard-
+"ware. We point out, that these parameters also cover the"
+"cost-relevant characteristics of disk accesses. Hence, view-"
+"ing main memory (e.g., a database system’s buffer pool) as"
+"cache for I/O operations, it is straight forward to include"
+disk access in this hardware model.
+3 The Idea
+Our recent work on main-memory database algorithms sug-
+gests that memory access cost can be modeled by estimat-
+ing the number of cache misses and scoring them with
+their latency [10]. This approach is similar to the one
+used for detailed I/O cost models. The hardware discussion
+"above shows, that also for main-memory access, we have"
+to distinguish between sequential and random access pat-
+"terns. However, contrary to disk access, we now have mul-"
+"tiple levels of cache with varying characteristics. Hence,"
+the challenge is to predict the number and kind of cache
+"misses for all cache levels. Our hypothesis is, that we can"
+"treat all cache levels individually, though equally, and cal-"
+culate the total cost as the sum of the cost for all levels:
+"? B"
+": H 3 : (1)"
+With the hardware modeled as described in the previous
+section and the hardware parameters measured by our cali-
+"bration tool [8], the remaining challenge is to estimate the"
+number and kind of cache misses per cache level for vari-
+ous database algorithms. The task is similar to estimating
+the number and kind of I/O operations in traditional cost
+"models. However, our goal is to provide a generic tech-"
+nique for predicting cache miss rates of various database
+"algorithms. Nevertheless, we want to sacrifice as little ac-"
+curacy as possible to this generalization.
+"To achieve the generalization, we introduce two abstrac-"
+tions. Our first abstraction is a unified description of data
+structures. We call it data regions. The second are data ac-
+cess patterns. Both of them are driven by the goal to keep
+"the models as simple as possible, but as detailed as neces-"
+"sary. Hence, we try to ignore any details that are not signif-"
+icant for our purpose (predicting cache miss rates) and only
+focus on the relevant parameters. The following paragraphs
+will present both abstractions in detail.
+3.1 Data Regions
+We model data structures as data regions. denotes the
+set of data regions. A data region consists of
+data items of size (in bytes). We call the length
+"of region , its width and its size."
+"Further, we define the number of cache lines covered by"
+"as , and the number of data items that fit"
+in the cache as .
+A (relational) database table is hence represented by a
+region with being the table’s cardinality and
+"being the tuple size (or width). Similarly, more complex"
+structures like trees are modeled by regions with rep-
+resenting the number of nodes and representing the
+size (width) of a single node.
+3.2 Basic Access Patterns
+Data access patterns vary in their referential locality and
+"hence in their cache behavior. Thus, not only the cost (la-"
+"tency) of cache misses depend on the access pattern, but"
+also the number of cache misses that occur. Each database
+algorithm describes a different data access pattern. This
+"means, each algorithm requires an individual cost function"
+to predict its cache misses. Deriving each cost function ”by
+"hand” is not only exhaustive and time consuming, but also"
+error-prone. Our hypothesis is that we only need to spec-
+ify the cost functions of a few basic access patterns. Given
+"these basic patterns and their cost functions, we could de-"
+scribe the access patterns of database operations as com-
+"binations of basic access patterns, and derive the resulting"
+cost functions automatically.
+"In order to identify the relevant basic access patterns, we"
+have to analyze the data access characteristics of database
+"operators, first. We classify database operations according"
+to the number of operands.
+"Unary operators—such as, e.g., table scan, selection,"
+"projection, sorting, hashing, aggregation, or duplicate"
+elimination—read data from one input region and write
+data to one output region. Data access can hence be mod-
+"eled by two cursors, one for the input and one for the out-"
+put. The input cursor,traverses,the,input,region sequen-
+"tially. For table scan, selection, and projection, the output",,,,
+cursor also simply progresses sequentially with each out-,,,,
+"put item. When building a hash table,",,,the output cursor,
+"”hops back and forth” in a non-sequential way. In practice,",,,,
+"the actual pattern is not completely random, but rather de-",,,,
+pends on the physical order and attribute value distribution,,,,
+of the input data as well as on the hash function.,,,,In our
+"case, i.e., knowing only the algorithm, but not",,,,the actual
+"data, it is not possible to make more accurate (and usable)",,,,
+assumptions about the pattern described by the output cur-,,,,
+"sor. Hence, we assume that the output region is accessed in",,,,
+a completely random manner. This assumption should not,,,,
+"be too bad, as a ”good” hash function typically destroys any",,,,
+sorting order and tries to level out skew data distributions.,,,,
+Sort algorithms typically perform a more complicated,,,,
+"data access pattern. In Section 6.2, we present quick-sort as",,,,
+an example to demonstrate how such patterns can be spec-,,,,
+ified as combinations of basic patterns.,,,Aggregation and,
+duplicate elimination are usually implemented using sort-,,,,
+"ing or hashing. Thus, they perform the respective patterns.",,,,
+"Though also a unary operation, data partitioning takes",,,,
+"a separate role. Again,",the input,region,,is traversed se-
+"quentially. However, modeling the output cursor’s access",,,,
+pattern as purely random is too simple.,,,"In fact, we can do",
+"better. Suppose, we want to partition the input region into",,,,
+"output regions. Then, we know that the access within",,,,
+each region is sequential.,"Hence, we model the output ac-",,,
+cess as a nested pattern.,Each region is,,a separate,local
+"cursor, performing a sequential pattern.",,,A single global,
+cursor hops back and,forth between,,the,regions. Simi-
+"lar to the hashing scenario described before,",,,,the order in
+"which the different region-cursors are accessed—i.e.,",,,,the
+"global pattern—depends on the partitioning criterion (e.g.,",,,,
+hash- or range-based) and the physical order and attribute,,,,
+value distribution of the input data.,,"Again, it is not possi-",,
+ble to model these dependencies in a general way without,,,,
+detailed knowledge about the actual data to process. Purely,,,,
+"from the algorithm, we can only deduce a random order.",,,,
+"Concerning binary operations, we focus our discussion",,,,
+"on join. The appropriate treatment of union,",,,,intersection
+and set-difference can be derived respectively.,,,,Binary op-
+"erators have two inputs and a single output. In most cases,",,,,
+one input—we call it left or outer,,input—is traversed se-,,
+quentially. Access to the other—right or inner—input de-,,,,
+pends on the algorithm and the data of,,,the left,input. A
+nested loop join performs,a complete,,sequential,traver-
+sal over the whole inner,input for,each,outer,data item.
+A merge join—assuming both inputs are already sorted—,,,,
+sequentially traverses the inner input once while the outer,,,,
+input is traversed. A hash join—provided there is already,,,,
+a hash table on the inner input—performs an ”un-ordered”,,,,
+access pattern on the inner input’s hash table. As discussed,,,,
+"above, we assume a uniform random access.",,,,
+"From this discussion, we identify the following basic ac-",,,,
+cess patterns as eminent in the majority of relational alge-,,,,
+bra implementations:,,,,
+Figure 1: Single Sequential Traversal
+Interleaved,Multi-Cursor,Access:
+single sequential traversal: :,
+A sequential traversal sequentially sweeps over,", ac-"
+cessing each data item in exactly once. The optional,
+parameter gives the number of bytes that are actually,
+"used of each data item. If not specified, we assume",
+"that all bytes are used, i.e.,",". If specified,"
+we require . models the fact that an,
+"operator, e.g., an aggregation or a projection (either as",
+"separate operator or in-lined with another operator),",
+accesses only a subset of its input’s,attributes. For
+"simplicity of presentation, we assume that we always",
+access consecutive bytes. Though not completely,
+"accurate, this is a reasonable abstraction in our case.5",
+Figure 1 shows a sample sequential traversal.,
+"","!"
+repetitive sequential traversal:,"#! $:"
+A repetitive sequential traversal performs,sequential
+"traversals over after another. specifies, whether all",
+traversals sweep over in the same direction ( &(),:
+"uni-directional), or whether subsequent traversals go",
+in alternating directions ( &) : bi-directional).,
+single random traversal: *,
+"Like a sequential traversal, a random",traversal ac-
+"cesses each data item in exactly once,",reading or
+"writing bytes. However, the data items are not ac-",
+"cessed in the order they are stored,",but rather ran-
+domly. Figure 2 depicts a sample random traversal.,
+"repetitive random traversal: + ,",*
+A repetitive random traversal performs,random
+traversals over after another.,We assume that the
+permutation orders of two subsequent,traversals are
+"independent of each other. Hence,",there is no point
+in discriminating uni-directional and bi-directional ac-,
+"cesses, here. Therefore, we omit parameter",.
+"!",
+random access: ./ :,
+Random access hits randomly chosen data items in,
+"3 by 5In case the bytes are som8eh#ow spread across the whole item width,+sC$ay as Dtimes with bytes (3F and ), one can3",replace .+>$ 3B
+"after another. We assume, that each data item may"
+"be hit more than once, and that thIe choices are inde-"
+pendent of each other. Even with we do not
+require that each data item is accessed at least once.
+interleaved multi-cursor access: K M #
+A nested multi-cursor access models a pattern where
+is divided into (equal-sized) sub-regions. Each
+sub-region has its own local cursor. All local cursors
+"perform the same basic pattern, given by . speci-"
+"fies, whether the global cursor picks the local cursors"
+randomly ( PRS ) or sequentially ( T B ). In
+"the latter case, specifies, whether all traversals of"
+the global cursor across the local cursors use the same
+"direction ( U ) ), or whether subsequent traver-"
+sals use alternating directions ( V) ). Figure 3
+shows a sample interleaved multi-cursor access.
+3.3 Compound Access Patterns
+"Database operations access more than one data region, usu-"
+"ally at least their input(s) and their output. This means,"
+they perform more complex data access patterns than the
+basic ones we introduced in the previous section. In order
+"to model these complex patterns, we now introduce com-"
+pound data access patterns. Unless we need to explicitly
+distinguish between basic and compound data access pat-
+"terns, we refer to both as data access patterns, or simply"
+"patterns. We use Y , Y , and Y& Y to denote the set"
+"of basic access patterns, compound access patterns, and all"
+"access patterns, respectively. We require F]I^ ` ."
+Be & b ( ) data access patterns. There
+are two principle ways to combine two or more patterns.
+Either the patterns are executed one after the other or they
+are executed concurrently. We call the first combination
+sequential execution and denote it by operator Bgh ;
+the second combination represents concurrent execution
+and is denoted by operator jkl . The result of
+either combination is again a (compound) data access pat-
+"tern. Hence, we can apply and repeatedly to describe"
+"complex patterns. By definition, is commutative, while"
+is not. In case both and,are used to describe a com-
+"plex pattern, has precedence over",", i.e.,"
+"-( / /2",- 3 -
+We use bracketing to overrule these assumptions or to avoid,
+"ambiguity. Further, we use the following notation to sim-",
+plify complex terms. Be,M :
+5 % 67,K 9
+Table 2 gives some examples how to describe the access,
+patterns of some typical database algorithms as compound,
+"patterns. For convenience, some re-occurring compound",
+access patterns are assigned a new name.,
+"Our hypothesis is, that we only need to provide an ac-",
+cess pattern description as depicted in Table 2 for each op-,
+eration we want to model. The actual cost function can then,
+"be created automatically, provided we know the cost func-",
+"tions for the basic patterns, and the rules how to combine",
+"them. To verify this hypothesis, we will now first estimate",
+the cache miss rates of the basic access patterns and then,
+derive rules how to calculate the cache miss rates of com-,
+pound access patterns.,
+4 Deriving Cost Functions,
+"In the following sections,",depicts the number
+levels and iterates over all levels: %,'of cache. For
+"better readability, we will omit the index",wherever we do
+"not refer to a specific cache level, but rather to all or any.",
+Sequential traversals,can,achieve,sequential,latency
+"(i.e., exploit full excess bandwidth), only if all the require-",,,,
+ments listed in Section 2.2 are fulfilled.,,,Sequential access,
+is fulfilled by definition. The hardware requirements (non-,,,,
+blocking caches and super-scalar CPUs allowing specula-,,,,
+tive execution) are covered by the results of our calibration,,,,
+"tool. In case these properties are not given, sequential la-",,,,
+tency will be the same as random latency.,,,"However,",the
+pure existence of these hardware features is not sufficient,,,,
+to achieve sequential latency.,,"Rather, the implementation",,
+needs to be able to exploit these features.,,,Data dependen-,
+cies in the code may keep the CPU from issuing multiple,,,,
+memory requests concurrently. It is not possible to deduce,,,,
+this information only from the algorithm without knowing,,,,
+the actual implementation.,But even without data depen-,,,
+"dencies, multiple concurrent memory requests may hit the",,,,
+same cache line. In case the number of concurrent hits to a,,,,
+single cache line is lower than the maximal number of out-,,,,
+"standing memory references allowed by the CPU, only one",,,,
+cache line is loaded at a time.6,,Though we can say how,,
+many subsequent references hit,,the same cache,line (see,
+"below), we do not know how many outstanding memory",,,,
+references the CPU can handle without stalling.7,,,"Hence, it",
+"is not possible to automatically guess, whether a sequen-",,,,
+tial traversal can achieve sequential latency or not. For this,,,,
+"reason, we offer two variants of",,,and,.
+and assume a scenario that can achieve sequential,,,,
+latency while and,;,do not. The actual number,,
+"of misses is equal in both cases, but the first case causes no",,,,
+"random misses, the second no sequential misses:",,,,
+4.1 Preliminaries,
+"For each basic pattern, we need to estimate both sequential",
+and random cache misses for each cache level.,Given an
+access pattern,", we describe the number of misses"
+per cache level as pair,
+"=0",' ? A A (2)
+containing the number,of sequential and random cache
+"misses. Obviously, the random patterns cause",no sequen-
+"tial misses. Consequently, we always set",
+"",for # + / ./
+for 8
+Unless we need to explicitly distinguish between both vari-
+"ants, we will use to refer to both."
+"6For a more detailed discussion, we refer the interested reader to [10]."
+"7Our calibration results can only indicate, whether the CPU can handle"
+"outstanding memory references without stalling, but not how many it can"
+handle concurrently.
+4.2 Single Sequential Traversal,,
+Be a data region and (,"#",) a
+sequential traversal over . We distinguish two cases.,,
+"Case . In this case, the gap between two",,
+adjacent accesses that is not touched at all is smaller than a,,
+"single cache line. Hence, the cache line containing this gap",,
+is loaded to serve at least one of the two adjacent accesses.,,
+"Thus, during a sweep over with",all cache,
+"lines coved by have to be loaded, i.e.,",,
+"/",,(3)
+"Case . In this case, the gap between two",,
+adjacent accesses that is not touched at all spans at least a,,
+"complete cache line. Hence, not all cache lines coved by",,
+have to be loaded during a sweep over with,,
+". Further, no access can benefit from a cache line already",,
+loaded by a previous access to another spot.,"Thus,",each
+access to an item in requires at least,cache,lines
+"to be loaded: . However, with",,it
+may happen that—depending on the alignment of,within,
+a cache line—one additional cache line has to be loaded per,,
+access. Considering these additional misses we get8,,
+"",,(4)
+4.3 Single Random Traversal,,
+Be a data region and a random traversal,,
+"over . Like before, we distinguish two cases.",,
+Case . With the untouched gaps being,,
+"smaller than cache line size, again all cache",lines coved,
+"by have to be accessed. Hence,",,. But
+"due to the random access pattern, two locally adjacent ac-",,
+"cesses are not temporally adjacent. Thus, if",exceeds,
+"the cache size, a cache line that serves two or more (lo-",,
+cally adjacent) accesses may be replaced by another cache,,
+line before all accesses that require it actually took place.,,
+"This in turn causes an additional cache miss, once the orig-",,
+"inal cache line is accessed again. Of course,",such addi-,
+"tional cache misses only occur, once the cache capacity is",,
+"exceeded, i.e., after spots have been ac-",,
+cessed. The probability that a cache line is removed from,,
+the cache although it will be used for another access,,in-
+"creases with the size of . In the worst case, each access",,
+"causes an additional cache miss. Hence, we get",,
+4.4 Repetitive Traversals,
+"With repetitive traversals, cache re-usage comes into play.",
+We assume initially empty caches.9,"Hence, the first traver-"
+sal requires as many cache misses as estimated above. But,
+the subsequent traversals may benefit from the data already,
+present in the cache after the first access.,We will analyze
+this in detail for both sequential and random traversals.,
+4.4.1 Repetitive Sequential Trav!ersal,
+"Be a data region,",% #! a repetitive
+"sequential traversal over , and )",a sin-
+gle sequential traversal over,. Two parameters determine
+the caching behavior of :,the number of cache
+lines touched during the first traversal and the direction,
+in which subsequent traversals sweep over,.
+In case is smaller than the number of available,
+"cache lines, only the first traversal","causes cache misses,"
+loading all required data. All,subsequent traversals
+"then just access the cache, causing no further cache misses.",
+In case exceeds the number of available cache,
+"lines, the end of a traversal pushes the data read at the begin",
+of the traversal out of the cache.,If the next traversal then
+again starts at the begin of,"( () ), it cannot benefit"
+from any data in the cache.,"Hence, each sweep causes the"
+full amount of cache misses.,If a subsequent sweep starts
+"where the previous one stopped, i.e.,",it traverses in the
+opposite direction as its predecessor (,") ), it can benefit"
+"from the data stored in the cache. Thus, only the first sweep",
+causes the full amount of cache misses. The,remaining
+sweeps cause cache misses only for the fraction of,that
+"does not fit into the cache. In total, we get",
+4.4.2 Repetitive Random Trav!ersal,
+"Be a data region, V a repetitive ran-",
+"dom traversal over , and T a single ran-",
+"dom traversal over . With random memory access,",is
+"not defined, hence, we need to consider only",to
+determine to which extend repetitive accesses can benefit,
+from cached data.,
+When is smaller than the number of available,
+"cache lines, we get the same effect as above. Only the first",
+"sweep causes cache misses, loading all required data.",All
+"subsequent sweeps then just access the cache, causing",
+no further cache misses.,
+In case exceeds the number of available cache,
+"lines, the most recently accessed data remains in the cache",
+"Case . Each spot is touched exactly once,"
+and as adjacent accesses cannot benefit from previously
+"loaded cache lines, we get the same formula as in (4):"
+at the,end,of,a,sweep.,"Hence,",there,is,a,certain,proba-
+bility that the first accesses of the following sweep might,,,,,,,,,,
+re-use (some of) these,,,,,cache lines.,This probability de-,,,,
+creases as,,,,increases.,We estimate the probability,,,,,
+with,,,,". In total, we get",,,,,,
+4.6 Interleaved Multi-Cursor Access,
+Be,a data region divided into
+sub-regions,with
+4.5 Random Access,,
+"","!",
+Be a data region and ./,,a random ac-
+"cess pattern on . In contrary to a single random traversal,",,
+"where each data item of is touched exactly once, we do",,
+"not know exactly, how many distinct data items are actu-",,
+"ally touched with random access. However, knowing that",,
+there are independent random accesses to the,,data
+"items in , we can estimate the average/expected number",,
+of distinct data items that are indeed touched.,,Be the
+number of all different outcomes of picking,,times one of
+the data items allowing multiple accesses to each data,,
+item. Further be th$e number of outcomes containing,,
+exactly distinct data items.,,If we
+"respect ordering, all outcomes are equally likely to occur:",,
+Furth%er be with! ./,K an interleaved multi-cursor access.,"#","#"
+Our detailed analysis in [9] leads to the formula,,,
+where and,denote the binomial coefficient and the
+Stirling number of second kind,"[16], respectively. First"
+"of all, there are",ways to choose distinct data items
+from the available,"data items. Then, there are"
+ways to partition the,"access into groups, one for each"
+distinct data item.,"Finally, we have to consider all per-"
+mutations to get equally likely outcomes.,
+Knowing the,n!umber of distinct data items that are
+touched by ./,"on average, we can now calcu-"
+late the number,of distinct cache lines touched. Due to
+"space limitations, we refer the interested reader to [9] for",
+a detailed discussion of,". In principle, is made-up by"
+similar formulas as used in Sections 4.2 and 4.3.,
+Knowing the number,"of distinct cache lines touched,"
+we can finally calculate the number of cache misses. With,
+accesses spread,"over distinct data items, each item"
+is touched,times on average. Analogously to Equa-
+"In other words, an interleaved multi-cursor access pat-"
+tern causes at least as many cache misses as some sim-
+"ple traversal pattern on the same data region. However,"
+it might cause random misses though the local pattern is
+"expected to cause sequential misses. Further, if the cross-"
+"traversal requ'ires more cache lines than available,additional random misses will occur."
+5.2 Concurrent Execution,
+"When executing two or more patterns concurrently, we ac-",
+tually have to consider the fact that they are competing for,
+the same cache. The number of total cache misses will be,
+higher than just the sum of the individual cache miss rates.,
+"The reason for this is, that the patterns will mutually evict",
+cache lines from the cache due to alignment conflicts.,To
+which extend such conflict misses occur does not only de-,
+"pend on the patterns themselves, but also on the data place-",
+ment and details of the cache alignment.,"Unfortunately,"
+these parameters are not know during cost evaluation.,
+"Hence, we model the impact of the cache interference",
+between concurrent patterns by dividing the cache among,
+all patterns. Each individual pattern gets only a fraction,
+of the cache according to its,footprint size. We define a
+pattern’s footprint size as the number of cache lines that,
+"it potentially revisits. With single sequential traversals, a",
+cache line is never visited again once access has moved on,
+"to the next cache line. Hence, simple sequential patterns",
+virtually occupy only one cache line a at time. Or in other,
+"words, the number of cache misses is independent of the",
+available cache size. The same,holds for single random
+traversals with,". In all other cases, basic"
+access patterns (potentially) revisit all cache lines covered,
+by their respective data region. We define,as follows.
+5 Combining Cost Functions,
+"Given the cache misses for basic patterns, we will now dis-",
+cuss how to derive the resulting cache misses of compound,
+patterns. The major problem is to model cache interference,
+that occurs among the basic patterns.,
+5.1 Sequential Execution,
+Be K ( ).,K then denotes
+that is executed after is finished,(cf. Sec. 3.3).
+"Obviously, the patterns do not interfere in this case.",Con-
+"sequently, the resulting total number of cache misses is at",
+most the sum of the cache misses of all,patterns. How-
+"ever, if two subsequent patterns operate on the same data",
+"region, the second might benefit from the data that the first",
+"one leaves in the cache. It depends on the cache size, the",
+"data sizes, and the characteristics of the individual patterns,",
+how many cache misses may be saved this way.,
+"To model this effect, we need to consider the contents",
+or state of the caches. We describe the state of a cache as,
+"a set of pairs F ! , stating for each data",
+region the fraction that is available in the cache.,For
+"convenience, we omit data regions that are not cached at all,",
+"i.e., those with . In order to appropriately consider",
+the caches’ initial sta,
+"of a pattern ::tes whe:n calculating the cache missesK , we define",
+with as defined in Equations (3) through (10). In
+"case is already entirely available in the cache, no cache"
+misses will occur during . In case only a fraction of
+"is available in the cache, there is a certain chance, that"
+random patterns might (partially) benefit from this frac-
+"tion. Sequential patterns, however, would only benefit if"
+this fraction makes up the ”head” of . As we do not know
+"whether this is true, we assume that sequential patterns can"
+"only benefit, if is already entirely in the cache. For con-"
+"venience, we write #K IH"
+"Additionally, we calculate the caches’ resulting states"
+after a pattern has been performed as follows:
+"Further, we use with to denote the number"
+of misses with only th of the total cache size available.
+"To calculate ' , we simply replace and by and"
+", respectively, in the formulas in Sections 4 and 5.1. We"
+"write . Likewise, we define % ."
+"Given these tools and an initial cache state , we can cal-"
+culate the number of cache misses and the resulting cache
+state for concurrent execution.
+"Equipped with these tools, we can calculate the number"
+"of misses for sequential execution, given an initial state :"
+After executing,,"K ,",the,cache,contains,a
+fraction of each,data,"region involved,",,proportional to,,its
+footprint size.,,,,,,
+5.3 Query Execution Plans,
+"With the techniques discussed in the previous sections, we",
+got the basic tools at hand to also estimate the number and,
+"kind of cache misses of complete query plans, and hence",
+to predict their memory access costs.,The various opera-
+tors in a query plan are combined in the same way as we,
+"combine basic pattern to compound patterns. Basically, the",
+"query plan describes, which operators are executed one af-",
+"ter the other and which are executed concurrently. Here, we",
+view pipelining as concurrent execution of data-dependent,
+"operators. Hence, we can derive the complex memory ac-",
+cess pattern of a query plan by combining the compound,
+patterns of the operators as discussed above.,Considering
+the caches’ states as introduces before takes care properly,
+"recognizing data dependencies, especially for pipelining.",
+6 Experimental Validation,
+"To validate our cost model, we will compare the estimated",
+costs with experimental results.,"Due to space limitations,"
+we will concentrate on a few,"characteristic operations,"
+here. The data access pattern of each operation is a combi-,
+nation of several basic patterns. The operations are chosen,
+so that each basic pattern occurs at least once. Extension to,
+"further operations and whole queries, however, is straight",
+"forward, as it just means applying the same techniques to",
+combine access patterns and derive their cost functions.,
+in absolute numbers. Times are depicted in milliseconds.
+We will now discuss each algorithm in detail.
+Quick-Sort. We use quick-sort to sort a table in-place.
+"Quick-sort uses two cursors, one starting at the front and"
+one starting at the end. Both cursors sequentially walk to-
+"ward each other swapping data items where necessary, until"
+they meet in the middle. We model this as two concurrent
+"sequential traversals, each sweeping over one half of the ta-"
+"ble: . At the meeting point, the"
+table is split in two parts and quick-sort recursively pro-
+ceeds depth-first on each part. With being the table’s
+"cardinality, the depth of the recursion is . In total, we"
+model the data access pattern of quick-sort as
+We varied the table sizes from 128 KB to 128 MB and
+the tables contained randomly distributed (numerical) data.
+Figure 4a shows that the models accurately predict the ac-
+tual behavior. Only the start-up overhead of about 100 TLB
+"misses is not covered, but this is negligible. The step in the"
+L2 misses-curve depicts the effect of caching on repeated
+sequential access: Tables that fit into the cache have to be
+loaded only once during the top-level iteration of quick-
+"sort. Subsequent iterations operate on the cached data,"
+causing no additional cache misses.
+Merge-Join. Assuming both operands are already
+"sorted, merge-join simply performs three concurrent se-"
+"quential patterns, one on each input and one on the output:"
+6.1 Setup,,,,,,
+We implemented our,cost,functions,and,,used our,main-
+memory DBMS prototype Monet,,,[3],as,experimentation,
+platform. We ran experiments on various hardware plat-,,,,,,
+"forms, ranging from",Linux-PCs,to,an,SGI,Origin2000.,
+"Due to space limitations, we concentrate on the results we",,,,,,
+"achieved on the latter machine, here.10",,,,We use the CPU’s,,
+hardware counters to,get the,exact number of cache and,,,,
+"TLB misses while running our experiments. Thus, we can",,,,,,
+validate the estimated cache miss rates.,,,,Validating the re-,,
+"sulting total memory access cost (i.e., miss rates scored by",,,,,,
+"their latencies) is more complicated, as there is no way to",,,,,,
+measure the time spent on memory access.,,,,,We can only,
+"measure the total elapsed time, and this includes the (pure)",,,,,,
+"CPU costs as well. Hence, we extenBd our model to esti-",,,,,,
+mate the total execution time,,,,,B as sum of,
+memory access time and pure CPU time.,,,,,is defined,
+in Equation (1). We calibrate,,,for each algorithm in,,,
+"an in-cache setting, i.e., without memory cost.",,,,,,
+"Again, we use randomly distributed data and table sizes"
+"as before. In all experiments, both operands are of equal"
+"size, and the join is a 1:1-match. The respective results in"
+Figure 4b demonstrate the accuracy of our cost functions.
+"Further, we see that single sequential access is not affected"
+by cache sizes. The costs are proportional to the data sizes.
+Hash-Join. While the previous operations perform only
+"sequential patterns, we now turn our attention to hash-join."
+"Hash-join performs random access to the hash-table, both"
+while building it and while probing the other input against
+it. We model the data access pattern of hash-join as
+6.2 Results,
+Figure 4 gathers our experimental results. Each plot repre-,
+sents one algorithm. The cache misses and times measured,
+during execution are depicted as points. The respective cost,
+estimations are plotted as lines. Cache misses are depicted,
+10The detailed,cache characteristics of this machine measured with
+our calibration,tool are listed in [9] and also on-line available at
+http://www.cwi.nl/,manegold/Calibrator/.
+Figure 4c clearly shows the significant increase in L2
+"and TLB misses, once the hash-table size exceeds the"
+respective cache size.11 Our cost model correctly predicts
+these effects and the resulting execution time.
+Partitioning. One way to prevent the performance de-
+crease of hash-join on large tables is to partition both
+"11The plots show no such effect for L1 misses, as all hash-tables are"
+"larger than the L1 cache, here."
+Figure 4: Measured (points) and Predicted (lines) Cache Misses and Execution Time
+operands on the join attribute and then hash-join the match-
+"ing partitions [15, 7]. If each partition fits into the cache,"
+no additional cache misses will occur during hash-join.
+Partitioning algorithms typically maintain a separate
+output buffer for each result partition. The input is read se-
+"quentially, and each tuple is written to its output partition."
+Data access within each output partition is also sequential.
+We model partitioning using a sequential traversal for the
+input and an interleaved multi-cursor access for the output:
+matching partitions.,We model the access pattern
+tioned hash-join as,
+Figure 4e shows that the cache miss rates and thus the to-
+"tal cost decrease significantly, once each partition (respec-"
+tively its hash-table) fits into the cache.
+7 Conclusion
+We presented a new generic approach to build generic
+database cost models for hierarchical memory systems. We
+extended the knowledge base on analytical cost-models
+for query optimization with a strategy derived from our
+experimentation with main-memory database technology.
+The approach taken shows that we can achieve hardware-
+independence by modeling hierarchical memory systems
+as multiple level of caches. Each level is characterized by a
+The curves in Figure 4d demonstrate the effect we dis-
+cussed in Section 4.6: The number of cache misses in-
+"creases significantly, once the number of output buffers"
+exceeds the number of cache blocks . Though they tend
+to under estimate the costs for very high numbers of parti-
+"tions, our models accurately predict the crucial points."
+"Partitioned Hash-Join. Once the inputs are partitioned,"
+we can join them by performing a hash-join on each pair of
+few parameters describing its sizes and timings. This ab-
+stract hardware model is not restricted to main-memory
+"caches. As we pointed out, the characteristics of main-"
+memory access are very similar to those of disk access.
+"Viewing main-memory (e.g., a database system’s buffer"
+"pool) as cache for disk access, it is obvious that our ap-"
+"proach also covers I/O. As such, the model presented pro-"
+vides a valuable addition to the core of cost-models for
+disk-resident databases as well.
+Adaptation of the model to a specific hardware is done
+by instantiating the parameters with the respective values
+"of the very hardware. Our Calibrator, a software tool to"
+"measure these values on arbitrary systems, is available for"
+download from our web site (http://monetdb.cwi.nl).
+"With our approach, building physical costs function"
+for database operations boils down to describing the al-
+gorithms’ data access in a kind of ”pattern language” as
+presented in Section 3.3. This task requires only informa-
+"tion that can be derived from the algorithm. Especially, no"
+"knowledge about the hardware is needed, here. The de-"
+tailed cost function are than automatically derived from the
+pattern descriptions.
