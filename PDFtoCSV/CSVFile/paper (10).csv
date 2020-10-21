@@ -1,0 +1,847 @@
+design itself may be further broken down into the base data layout
+"and the indexing information which helps navigate the data, i.e., the"
+"leaves of a B+tree and its inner nodes, or buckets of a hash table and"
+the hash-map. We use the term data structure design throughout
+"the paper to refer to the overall design of the data layout, indexing,"
+and the algorithms together as a whole.
+We de ne “design” as the set of all decisions that characterize
+"the layout and algorithms of a data structure, e.g., “Should data"
+"nodes be sorted?”, “Should they use pointers?”, and “How should"
+we scan them exactly?”. The number of possible valid data structure
+designs explodes to 1032 even if we limit the overall design to
+"only two di erent kinds of nodes (e.g., as is the case for B+trees). If"
+"we allow every node to adopt di erent design decisions (e.g., based"
+"on access patterns), then the number of designs grows to 10100.1"
+We explain how we derive these numbers in Section 2.
+The Problem: Human-Driven Design Only. The design of data
+"structures is a slow process, relying on the expertise and intuition of"
+researchers and engineers who need to mentally navigate the vast
+"design space. For example, consider the following design questions."
+"(1) We need a data structure for a speci c workload: Should we"
+strip down an existing complex data structure? Should we
+build o a simpler one? Or should we design and build a new
+one from scratch?
+"(2) We expect that the workload might shift (e.g., due to new"
+application features): How will performance change? Should
+we redesign our core data structures?
+"(3) We add ash drives with more bandwidth and also add more"
+system memory: Should we change the layout of our B-tree
+nodes? Should we change the size ratio in our LSM-tree?
+"(4) We want to improve throughput: How bene cial would it"
+be to buy faster disks? more memory? or should we invest
+the same budget in redesigning our core data structure?
+This complexity leads to a slow design process and has severe
+"cost side-e ects [12, 22]. Time to market is of extreme importance,"
+so new data structure design e ectively stops when a design “is
+"due” and only rarely when it “is ready”. Thus, the process of design"
+extends beyond the initial design phase to periods of reconsidering
+the design given bugs or changes in the scenarios it should support.
+"Furthermore, this complexity makes it di cult to predict the impact"
+"of design choices, workloads, and hardware on performance. We"
+include two quotes from a systems architect with more than two
+decades of experience with relational systems and key-value stores.
+"(1) “I know from experience that getting a new data structure into"
+"production takes years. Over several years, assumptions made about"
+"the workload and hardware are likely to change, and these changes"
+threaten to reduce the bene t of a data structure. This risk of change
+makes it hard to commit to multi-year development e orts. We need
+to reduce the time it takes to get new data structures into production.”
+"(2) “Another problem is the limited ability we have to iterate. While"
+"some changes only require an online schema change, many require"
+a dump and reload for a data service that might be running 24x7.
+The budget for such changes is limited. We can overcome the limited
+budget with tools that help us determine the changes most likely to be
+"useful. Decisions today are frequently based on expert opinions, and"
+these experts are in short supply.”
+Vision Step 1: Design Synthesis from First Principles.We pro-
+pose a move toward the new design paradigm captured in Figure 1.
+Our intuition is that most designs (and even inventions) are about
+combining a small set of fundamental concepts in di erent ways
+or tunings. If we can describe the set of the rst principles of data
+"structure design, i.e., the core design principles out of which all"
+"data structures can be drawn, then we will have a structured way"
+"to express all possible designs we may invent, study, and employ as"
+combinations of those principles. An analogy is the periodic table of
+elements in chemistry. It classi es elements based on their atomic
+"number, electron con guration, and recurring chemical properties."
+The structure of the table allows one to understand the elements
+and how they relate to each other but crucially it also enables argu-
+ing about the possible design space; more than one hundred years
+"since the inception of the periodic table in the 18th century, we"
+keep discovering elements that are predicted (synthesized) by the
+"“gaps” in the table, accelerating science."
+Our vision is to build the periodic table of data structures so
+we can express their massive design space. We take the rst step in
+"this paper, presenting a set of rst principles that can synthesize"
+orders of magnitude more data structure designs than what has
+been published in the literature. It captures basic hardware con-
+scious layouts and read operations; future work includes extending
+"the table for additional parts of the design space, such as updates,"
+"concurrency, compression, adaptivity, and security."
+Vision Step 2: Cost Synthesis from Learned Models. The sec-
+ond step in our vision is to accelerate and automate the design
+"process. Key here, is being able to argue about the performance"
+behavior of the massive number of designs so we can rank them.
+"Even with an intuition that a given design is an excellent choice,"
+"one has to implement the design, and test it on a given data and"
+query workload and onto speci c hardware. This process can take
+weeks at a time and has to be repeated when any part of the envi-
+ronment changes. Can we accelerate this process so we can quickly
+"test alternative designs (or di erent combinations of hardware, data,"
+"and queries) on the order of a few seconds? If this is possible, then"
+"we can 1) accelerate design and research of new data structures,"
+and 2) enable new kinds of adaptive systems that can decide core
+"parts of their design, and the right hardware."
+Arguing formally about the performance of diverse designs is
+"a notoriously hard problem [13, 70, 73, 75, 76] especially as work-"
+load and hardware properties change; even if we can come up with
+a robust analytical model it may soon be obsolete [43]. We take
+"a hybrid route using a combination of analytical models, bench-"
+"marks, and machine learning for a small set of fundamental access"
+"primitives. For example, all pointer based data structures need to"
+perform random accesses as operations traverse their nodes. All
+"data structures need to perform a write during an update operation,"
+regardless of the exact update strategy. Our idea is to synthesize
+the cost of complex operations out of models that describe those
+simpler more fundamental operations. By de nition there are only
+few fundamental access primitives and so while it is impractical to
+"create models for all possible data structure designs, it is instead"
+possible to create models for the few access primitives. The models
+start out as analytical models since we know how these primitives
+"will likely behave. However, they are also trained across diverse"
+hardware pro les by running benchmarks that isolate the behavior
+"of those primitives. This way, we learn a set of coe cients that"
+capture the subtle performance details of diverse hardware settings.
+"..."
+The Data Calculator: Automated What-if Design.We present
+a “design engine” – the Data Calculator – that can compute the
+performance of arbitrary data structure designs as combinations of
+fundamental design primitives. It is an interactive tool that acceler-
+"ates the process of design by turning it into an exploration process,"
+improving the productivity of researchers and engineers; it is able to
+answer what-if data structure design questions to understand how
+"the introduction of new design choices, workloads, and hardware"
+a ect the performance (latency) of an existing design. It currently
+supports read queries for...basic hardw...are conscious layouts. It al-...
+lows users to give as input a high-level speci cation of the layout
+"of a data structure (as a combination of primitives), in addition to"
+"workload, and hardware speci cations. The Data Calculator gives"
+as output a calculation of the latency to run the input workload on
+the input hardware. The architecture and components of the Data
+Calculator are captured in Figure 2: (1) a library of ne-grained data
+layout primitives that can be combined in arbitrary ways to describe
+data structure layouts (labeled “Data Layout Primitives” in Figure
+2); (2) a library of data access primitives that can be combined to
+generate designs of operations (labeled “Data Access Primitives” in
+Figure 2); (3) an operation and cost synthesizer that computes the
+design of operations and their latency for a given data structure
+"layout speci cation, a workload and a hardware pro le (labeled"
+"“Operation Synthesis” and “Cost Synthesis” in Figure 2), and (4) a"
+search component that can traverse part of the design space to sup-
+plement a partial data structure speci cation or inspect an existing
+one with respect to both the layout and the access design choices
+"(labeled “What-if Design and Auto-completion” in Figure 2)."
+Inspiration. Our work is inspired by several lines of work across
+many elds of computer science. John Ousterhout’s project Magic
+in the area of computer architecture allows for quick veri cation of
+transistor designs so that engineers can easily test multiple designs
+"[60]. Leland Wilkinson’s “grammar of graphics” provides structure"
+and formulation on the massive universe of possible graphics one
+can design [72]. Mike Franklin’s Ph.D. thesis explores the possible
+client-server architecture designs using caching based replication as
+the main design primitive and proposes a taxonomy that produced
+both published and unpublished (at the time) cache consistency
+algorithms. Joe Hellerstein’s work on Generalized Search Indexes
+"[6, 7, 38, 47–50] makes it easy to design and test new data structures"
+by providing templates that signi cantly minimize implementa-
+tion time. Work on data representation synthesis in programming
+"languages [15, 18–21, 24–27] enables selection and synthesis of"
+representations out of small sets of (3-5) existing data structures.
+The Data Calculator can be seen as a step toward the Automatic
+Programmer challenge set by Jim Gray in his Turing award lecture
+"[35], and as a step toward the “calculus of data structures” chal-"
+lenge set by Turing award winner Robert Tarjan [69]: “What makes
+one data structure better than another for a certain application? The
+known results cry out for an underlying theory to explain them.”
+Contributions. Our contributions are as follows:
+"(1) We introduce a set of data layout design primitives that cap-"
+ture the rst principles of data layouts including hardware
+conscious designs that dictate the relative positioning of data
+structure nodes (§2).
+"(2) We show how combinations of the design primitives can"
+"describe known data structure designs, including arrays,"
+"linked-lists, skip-lists, queues, hash-tables, binary trees and"
+"(Cache-conscious) b-trees, tries, MassTree, and FAST (§2)."
+"(3) We show that in addition to known designs, the design prim-"
+itives form a massive space of possible designs that has only
+been minimally explored in the literature (§2).
+"(4) We show how to synthesize the latency cost of basic opera-"
+"tions (point and range queries, and bulk loading) of arbitrary"
+data structure designs from a small set of access primitives.
+Access primitives represent fundamental ways to access data
+and come with learned cost models which are trained on
+diverse hardware to capture hardware properties (§3).
+"(5) We show how to use cost synthesis to interactively answer"
+"complex what-if design questions, i.e., the impact of changes"
+"to design, workload, and hardware (§4)."
+"(6) We introduce a design synthesis algorithm that completes"
+partial layout speci cations given a workload and hardware
+input; it utilizes cost synthesis to rank designs (§4).
+"(7) We demonstrate that the Data Calculator can accurately"
+compute the performance impact of design choices for state-
+of-the-art designs and diverse hardware (§5).
+"(8) We demonstrate that the Data Calculator can accelerate the"
+design process by answering rich design questions in a mat-
+ter of seconds or minutes (§5).
+2 DATA LAYOUT PRIMITIVES
+AND STRUCTURE SPECIFICATIONS
+"In this section, we discuss the library of data layout design prim-"
+itives and how it enables the description of a massive number of
+both known and unknown data structures.
+Data Layout Primitives. The Data Calculator contains a small
+set of design primitives that represent fundamental design choices
+when constructing a data structure layout. Each primitive belongs
+to a class of primitives depending on the high-level design concept it
+"refers to such as node data organization, partitioning, node physical"
+"placement, and node metadata management. Within each class,"
+individual primitives de ne design choices and allow for alternative
+tunings. The complete set of primitives we introduce in this paper
+is shown in Figure 11 in the appendix; they describe basic data
+"layouts and cache conscious optimizations for reads. For example,"
+"“Key Order (none|sorted|k-ary)” de nes how data is laid out in a"
+"node. Similarly, “Key Retention (none|full|func)” de nes whether"
+"and how keys are included in a node. In this way, in a B+tree all"
+"nodes use “sorted” for order maintenance, while internal nodes use"
+"“none” for key retention as they only store fences and pointers, and"
+leaf nodes use “full” for key retention.
+The logic we use to generate primitives is that each one should
+represent a fundamental design concept that does not break down
+"into more useful design choices (otherwise, there will be parts of"
+the design space we cannot express). Coming up with the set of
+primitives is a trial and error task to map the known space of design
+concepts to an as clean and elegant set of primitives as possible.
+"Naturally, not all layout primitives can be combined. Most invalid"
+"relationships stem from the structure of the primitives, i.e., each"
+primitive combines with every other standalone primitive. Only a
+few pairs of primitive tunings do not combine which generates a
+small set of invalidation rules. These are mentioned in Figure 11.
+From Layout Primitives to Data Structures. To describe com-
+"plete data structures, we introduce the concept of elements . An"
+element is a full speci cation of a single data structure node; it
+de nes the data and access methods used to access the node’s data.
+"An element may be “terminal” or “non-terminal”. That is, an el-"
+ement may be describing a node that further partitions data to
+more nodes or not. This is done with the “fanout” primitive whose
+value represents the maximum number of children that would be
+generated when a node partitions data. Or it can be set to “terminal”
+in which case its value represents the capacity of a terminal node.
+A data structure speci cation contains one or more elements. It
+"needs to have at least one terminal element, and it may have zero"
+or more non-terminal elements. Each element has a destination
+element (except terminal ones) and a source element (except the
+root). Recursive connections are allowed to the same element.
+Examples. A visualization of the primitives can be seen at the left
+side of Figure 3. It is a at representation of the primitives shown in
+Figure 11 which creates an entry for every primitive signature. The
+radius depicts the domain of each primitive but di erent primitives
+"may have di erent domains, visually depicted via the multiple inner"
+circles in the radar plots of Figure 3. The small radar plots on the
+right side of Figure 3 depict descriptions of nodes of known data
+structures as combinations of the base primitives. Even visually
+it starts to become apparent that state-of-the-art designs which
+are meant to handle di erent scenarios are “synthesized from the
+"same pool of design concepts”. For example, using the non-terminal"
+B+tree element and the terminal sorted data page element we can
+construct a full B+tree speci cation; data is recursively broken
+down into internal nodes using the B+tree element until we reach
+"the leaf level, i.e., when partitions reach the terminal node size."
+Figure 3 also depicts Trie and Skip-list speci cations. Figure 11
+"provides complete speci cations of Hash-table, Linked-list, B+tree,"
+"Cache-conscious B-tree, and FAST."
+Elements “Without Data”. For at data structures without an
+"indexing layer, e.g., linked-lists and skip-lists, there need to be"
+elements in the speci cation that describe the algorithm used to
+navigate the terminal nodes. Given that this algorithm is e ectively
+"a model, it does not rely on any data, and so such elements do not"
+translate to actual nodes; they only a ect algorithms that navigate
+"across the terminal nodes. For example, a linked-list element in"
+Figure 11 describes that data is divided into nodes that can only be
+accessed via following the links that connect terminal nodes. Simi-
+"larly, one can create complex hierarchies of non-terminal elements"
+that do not store any data but instead their job is to synthesize
+a collective model of how the keys should be distributed in the
+"data structure, e.g., based on their value or other properties of the"
+workload. These elements may lead to multiple hierarchies of both
+"non-terminal nodes with data and terminal ones, synthesizing data"
+structure designs that treat parts of the data di erently. We will see
+such examples in the experimental analysis.
+Recursive Design Through Blocks. A block is a logical portion
+of the data that we divide into smaller blocks to construct an in-
+stance of a data structure speci cation. The elements in a speci-
+cation are the “atoms” with which we construct data structure
+"instances by applying them recursively onto blocks. Initially, there"
+"is a single block of data, all data. Once all elements have been ap-"
+"plied, the original block is broken down into a set of smaller blocks"
+that correspond to the internal nodes (if any) and the terminal
+nodes of the data structure. Elements without data can be thought
+of as if they apply on a logical data block that represents part of
+"the data with a set of speci c properties (i.e., all data if this is the"
+rst element) and partitions the data with a particular logic into
+further logical blocks or physical nodes. This recursive construction
+"is used when we test, cost, and search through multiple possible"
+designs concurrently over the same data for a given workload and
+"hardware as we will discuss in the next two sections, but it is also"
+helpful to visualize designs as if “data is pushed through the design”
+based on the elements and logical blocks.
+Cache-Conscious Designs. One critical aspect of data structure
+"design is the relative positioning of its nodes, i.e., how “far” each"
+node is positioned with respect to its predecessors and successors in
+a query path. This aspect is critical to the overall cost of traversing
+a data structure. The Data Calculator design space allows to dictate
+how nodes should be positioned explicitly: each non-terminal ele-
+ment de nes how its children are positioned physically with respect
+"to each other and with respect to the current node. For example,"
+setting the layout primitive “Sub-block physical layout” to BFS tells
+the current node that its children are laid out sequentially. In ad-
+"dition, setting the layout primitive “Sub-blocks homogeneous” to"
+true implies that all its children have the same layout (and therefore
+"xed width), and allows a parent node to access any of its children"
+"nodes directly with a single pointer and reference number. This, in"
+"turn, makes it possible to t more data in internal nodes because"
+only one pointer is needed and thus more fences can be stored
+within the same storage budget. Such primitives allow specifying
+designs such as Cache Conscious B+tree [65] (Figure 11 provides
+"the complete speci cation), but also the possibility of generalizing"
+the optimizations made there to arbitrary structures.
+"Similarly, we can describe FAST [44]. First, we set “Sumas. bpx -block"
+"physical location” to inline, specifying that the childr zo Mneena n apos.des aremin"
+"directly after the parent node physically. Second, w edPdren nodes are homogeneous, and have a sub-block layout of “BFS Layer List (Page SizkeeyR/eeyRCeatecnthioen.typek nally, we set thfilaintdirtehcfeilteserst.zotnhrs.eMatotinhteerschil-te tente iocnh.fuint lcdtiroLinenen"
+"Size)”. Here, thzeeroBElFemSenltaNyulelabrlelist speci es that on a hilginhkse.lirnkslMevemeLla,yowute"
+"should have a BFS leateynotioun.ttypoevalueR tifonsub-trees containing Page Size/CachefuncLine Size layers inout in BFS mannerutilbva;luheRoewevenrc,tioinst ide of those sub-trees pages are laid.fu izayti a scoinnstgleatioc tention on n. .ra nlolevel. The combination matches then"
+combined Page Leve u tilizla bloctiok.phyking and Cache Line level blocking ofs.
+"FAST. Additionally, th physical locations casn be calculated via o sets, and so eliminatesube− Data Calculator realizes that all child nodebloc"
+all pointers. Figure 11 provides the complete speci cation.
+Size of the Design Space. To help with arguing about the possible
+design space we provide formal de nitions of the various constructs.
+De nition 2.1 (Data Layout Primitive). A primitive pi belongs
+to a domain of values Pi and describes a layout aspect of a data
+structure node.
+De nition 2.2 (Data Structure Element). AData Structure Element
+"E is de ned as a set of data layout primitives: E = {p1, ...,pn } 2"
+"Pi ⇥ ... ⇥ Pn , that uniquely identify it."
+"Given a set of In (P) invalid combinations, the set of all possible"
+"elements E, (i.e., node layouts) that can be designed as distinct"
+combinations of data layout primitives has the following cardinality.
+Y
+"|E | = Pi ⇥ ... ⇥ Pn In (P) = |Pi | In (P) (1)"
+8Pi 2E
+"De nition 2.3 (Blocks). Each non-terminal element E 2 E, ap-"
+"plied on a set of data entries D 2 D, uses function BE (D) ="
+"{D1, ...,Df } to divide D into f blocks such that D1 [ ... [ Df = D."
+A polymorphic design where every block may be described by a
+di erent element leads to the following recursive formula for the
+cardinality of all possible designs.
+X X
+cpol (D) = |E| + cpol (Di ) (2)
+8E2E 8Di 2BE (D )
+Example: A Vast Space of DesignOpportunities. To get insight
+into the possible total designs we make a few simplifying assump-
+tions. Assume the same fanout f across all nodes and terminal node
+size equal to page size psize . Then N = d |D |p sizee is the total number
+of pages in which we can divide the data and h = dlo f (N )e is
+the height of the hierarchy. We can then approximate the result of
+Equation 2 by considering that we have |E | possibilities for the root
+"element, and f ⇤ |E | possibilities for its resulting partitions wBhichin turn have f ⇤ |E | possibilities each up to the maximum leve+lTroefe"
+recursion h = lo f (N ). This leads to the following result.
+c f (N )epol (D) ⇡ |E| ⇤ ( f ⇤ |E|) dlo (3)
+Most sophisticated data structure designs use only two distinct
+"elements, each one describing all nodes across groups of levels of"
+"the structure, e.g., B-tree designs use one element for all internal"
+nodes and one for all leaves. This gives the following design space
+for most standard designs.
+cstan (D) ⇡ |E|2 (4)
+"Using Equations 1, 3 and 4 we can get estimations of the possi-"
+ble design space for di erent kinds of data structure designs. For
+"example, given the existing library of data layout primitives, and"
+by limiting the domain of each primitive as shown in Figure 11 in
+"appendix, then from Equation 1 we get |E | = 1016, meaning we can"
+describe data structure layouts from a design space of 1016 possible
+node elements and their combinations. This number includes only
+"valid combinations of layout primitives, i.e., all invalid combina-"
+"tions as de ned by the rules in Figure 11 are excluded. Thus, we"
+have a design space of 1032 for standard two-element structures
+"(e.g., where B-tree and Trie belong) and 1048 for three-element"
+"structures (e.g., where MassTree [57] and Bounded-Disorder [55]"
+"belong). For polymorphic structures, the number of possible designs"
+"grows more quickly, and it also depends on the size of the training"
+"data used to nd a speci cation, e.g., it is > 10100 for 1015 keys."
+The numbers in the above example highlight that data structure
+design is still a wide-open space with numerous opportunities for
+"innovative designs as data keeps growing, application workloads"
+"keep changing, and hardware keeps evolving. Even with hundreds"
+"of new data structures manually designed and published each year,"
+this is a slow pace to test all possible designs and to be able to argue
+about how the numerous designs compare. The Data Calculator is
+a tool that accelerates this process by 1) providing guidance about
+"what is the possible design space, and 2) allowing to quickly test how"
+a given design ts a workload and hardware setting. A technical
+report includes a more detailed description of its primitives [23].
+3 DATA ACCESS PRIMITIVES
+AND COST SYNTHESIS
+We now discuss how the Data Calculator computes the cost (la-
+tency) of running a given workload on a given hardware for a
+particular data structure speci cation. Traditional cost analysis in
+systems and data structures happens through experiments and the
+development of analytical cost models. Both options are not scalable
+when we want to quickly test multiple di erent parts of the mas-
+sive design space we de ne in this paper. They require signi cant
+"expertise and time, while they are also sensitive to hardware and"
+workload properties. Our intuition is that we can instead synthesize
+complex operations from their fundamental components as we do
+"for data layouts in the previous section, and then develop a hybrid"
+way (through both benchmarks and models but without signi cant
+human e ort needed) to assign costs to each component individu-
+ally; The main idea is that we learn a small set of cost models for
+ne-grained data access patterns out of which we can synthesize
+the cost of complex dictionary operations for arbitrary designs in
+the possible design space of data structures.
+The middle part of Figure 2 depicts the components of the Data
+Calculator that make cost synthesis possible: 1) the library of data
+"access primitives, 2) the cost learning module which trains cost"
+models for each access primitive depending on hardware and data
+"properties, and 3) the operation and cost synthesis module which"
+synthesizes dictionary operations and their costs from the access
+"primitives and the learned models. Next, we describe the process"
+and components in detail.
+Cost Synthesis fromData Access Primitives. Each access prim-
+"itive characterizes one aspect of how data is accessed. For example,"
+"a binary search, a scan, a random read, a sequential read, a random"
+"write, are access primitives. The goal is that these primitives should"
+be fundamental enough so that we can use them to synthesize oper-
+ations over arbitrary designs as sequences of such primitives. There
+exist two levels of access primitives. Level 1 access primitives are
+marked with white color in Figure 2 and Level 2 access primitives
+are nested under Level 1 primitives and marked with gray color.
+"For example, a scan is a Level 1 access primitive used any time an"
+operation needs to search a block of data where there is no order.
+"At the same time, a scan may be designed and implemented in"
+more than one way; this is exactly what Level 2 access primitives
+"represent. For example, a scan may use SIMD instructions for par-"
+"allelization if keys are nicely packed in vectors, and predication"
+to minimize branch mispredictions with certain selectivity ranges.
+"In the same way, a sorted search may use interpolation search"
+"if keys are arranged with uniform distribution. In this way, each"
+"Level 1 primitive is a conceptual access pattern, while each Level 2"
+primitive is an actual implementation that signi es a speci c set of
+design choices. Every Level 1 access primitive has at least one Level
+2 primitive and may be extended with any number of additional
+ones. The complete list of access primitives currently supported by
+the Data Calculator is shown in Table 1 in appendix.
+"Learned Cost Models. For every Level 2 primitive, the Data Cal-"
+culator contains one or more models that describe its performance
+"(latency) behavior. These are not static models; they are trained"
+and tted for combinations of data and hardware pro les as both
+"those factors drastically a ect performance. To train a model, each"
+Level 2 primitive includes a minimal implementation that captures
+"the behavior of the primitive, i.e., it isolates the performance e ects"
+"of performing the speci c action. For example, an implementation"
+"for a scan primitive simply scans an array, while an implementa-"
+tion for a random access primitive simply tries to access random
+locations in memory. These implementations are used to run a
+sequence of benchmarks to collect data for learning a model for
+the behavior of each primitive. Implementations should be in the
+target language/environment.
+The models are simple parametric models; given the design deci-
+"sion to keep primitives simple (so they can be easily reused), we"
+have domain expertise to expect how their performance behavior
+"will look like. For example, for scans, we have a strong intuition"
+"they will be linear, for binary searches that they will be logarithmic,"
+and that for random memory accesses that they will be smoothed
+out step functions (based on the probability of caching). These sim-
+"ple models have many advantages: they are interpretable, they train"
+"quickly, and they don’t need a lot of data to converge. Through the"
+"training process, the Data Calculator learns coe cients of those"
+models that capture hardware properties such as CPU and data
+movement costs.
+Hardware and data pro les hold descriptive information about
+"data and hardware respectively (e.g., data distribution for data, and"
+"CPU, Bandwidth, etc. for hardware). When an access primitive is"
+"trained on a data pro le, it runs on a sample of such data, and"
+"when it is trained for a hardware pro le, it runs on this exact"
+"hardware. Afterward, though, design questions can get accurate"
+cost estimations on arbitrary access method designs without going
+over the data or having to have access to the speci c machine.
+"Overall, this is an o ine process that is done once, and it can be"
+repeated to include new hardware and data pro les or to include
+new access primitives.
+Example: Binary Search Model. To give more intuition about
+how models are constructed let us consider the case of a Level 2
+primitive of binary searching a sorted array as shown on the upper
+right part of Figure 4. The primitive contains a code snippet that
+implements the bare minimum behavior (Step 1 in Figure 4). We
+observe that the benchmark results (Step 2 in Figure 4) indicate
+that performance is related to the size of the array by a logarithmic
+component. As expected there is also bias as the relationship for
+small array sizes (such as just 4 or 8 elements) might not t exactly
+a logarithmic function. We additionally add a linear term to capture
+"some small linear dependency on the data size. Thus, the cost of"
+binary searching an array of n elements can be approximated as
+"f (n) = c1n + c2 logn + 0 where c1, c2, and 0 are coe cients"
+learned through linear regression. The values of these coe cients
+"help us translate the abstract model, f (n) = O (logn), into a realized"
+predictive model which has taken into account factors such as CPU
+speed and the cost of memory accesses across the sorted array for
+the speci c hardware. The resulting tted model can be seen in
+Step 3 on the upper right part of Figure 4. The Data Calculator
+can then use this learned model to query for the performance of
+"binary search within the trained range of data sizes. For example,"
+this would be used when querying a large sorted array as well as a
+small node of a complex data structure that is sorted.
+Certain critical aspects of the training process can be automated
+"as part of future research. For example, the data range for which"
+"we should train a primitive depends on the memory hierarchy (e.g.,"
+"size of caches, memory, etc.) on the target machine and what is the"
+"target setting in the application (i.e., memory only, or also disk/ ash,"
+"etc.). In turn, this also a ects the length of the training process."
+"Overall, such parameters can eventually be handled through high-"
+"level knobs, letting the system make the lower level tuning choices."
+"Furthermore, identi cation of convergence can also be automated."
+"There exist primitives that require more training than others (e.g.,"
+"due to more complex code, random access or sensitivity to outliers),"
+and so the number of benchmarks and data points we collect should
+not be a xed decision.
+Synthesizing Latency Costs. Given a data layout speci cation
+"and a workload, the Data Calculator uses Level 1 access primitives"
+to synthesize operations and subsequently each Level 1 primitive is
+translated to the appropriate Level 2 primitive to compute the cost of
+the overall operation. Figure 5 depicts this process and an example
+"speci cally for the operation. This is an expert system, i.e., atGe"
+sequence of rules that based on a given data structure speci cation
+de nes how to traverse its nodes.2 To read Figure 5 start from the
+"top right corner. The input is a data structure speci cation, a test"
+"data set, and the operati kon we need to cost, e. yeg xG., t ee . Th"
+process simulates populating the data structure with the data to
+"gure out how many nodes exist, the height of the structure, etc."
+"This is because to accurately estimate the cost of an operation, the"
+Data Calculator needs to take into account the expected state of
+the data structure at the particular moment in the workload. It does
+this by recursively dividing the data into blocks given the elements
+used in the speci cation.
+"In the example of Figure 5 the structure contains two elements,"
+"one for internal nodes and one for leaves. For every node, the"
+operation synthesis process takes into account the data layout
+"primitives used. For example, if a node is sorted it uses binary"
+"search, but if the node is unsorted, it uses a full scan. The rhombuses"
+on the left side of Figure 5 re ect the data layout primitives that
+"teGoperation relies on, while the rounded rectangles re ect data"
+access primitives that may be used. For each node the per-node
+operation synthesis procedure (starting from the left top side of
+"Figure 5), rst checks if this node is internal or not by checking"
+"whether the node contains keys or values; if not, it proceeds to"
+determine which node it should visit next (left side of the gure)
+"and if yes, it continues to process the data and values (right side of"
+the gure). A non-terminal element leads to data of this block being
+split into f new blocks and the process follows the relevant blocks
+"only, i.e., the blocks that this operation needs to visit to resolve."
+"In the end, the Data Calculator generates an abstract syntax tree"
+with the access patterns of the path it had to go through. This is
+expressed in terms of Level 1 access primitives (bottom right part
+"of Figure 5). In turn, this is translated to a more detailed abstract"
+syntax tree where all Level 1 access primitives are translated to
+Level 2 access primitives along with the estimated cost for each one
+"given the particular data size, hardware input, and any primitive"
+speci c input. The overall cost is then calculated as the sum of all
+those costs.
+will binary search and the number of keys. The Random Access
+primitive takes as input the size of the path so far which allows us
+to takes into account caching e ects. Each query starts by visiting
+the root node. The data calculator estimates the size of the path
+so far to be 312 bytes. This is because the size of the path so far
+is in practice equal to the size of the root node which containing
+20 pointers (because the fanout is 20) and 19 values sums up at
+"root = internalnode = 20 ⇤ 8 + 19 ⇤ 8 = 312 bytes. In this way,"
+the Data Calculator logs a cost of RandomAccess (312) to access the
+"root node. Then, it calculates the cost of binary search across 19"
+"fences, thus logging a cost of SortedSearch(RowStore, 19 ⇤ 8). It"
+uses the “RowStore” option as fences and pointers are stored as
+"pairs within each internal node. Now, the access to the root node"
+"is fully accounted for, and the Data Calculator moves on to cost"
+the access at the next tree level. Now the size of the path so far
+is given by accounting for the whole next level in addition to the
+root node. This is in total le el2 = root+fanout⇤internalnode =
+312 + 20 ⇤ 312 = 6552 bytes (due to fanout being 20 we account
+"for 20 nodes at the next level). Thus to access the next node, the"
+Data Calculator logs a cost of RandomAccess (6552) and again a
+"search cost of SortedSearch(RowStore, 19 ⇤ 8) to search this node."
+The last step is to search the leaf level. Now the size of the path
+so far is given by accounting for the whole size of the tree which
+is le el2 + 400 ⇤ (250 ⇤ 16) = 1606552 bytes since we have 400
+pages at the next level (20x20) and each page has 250 records of
+"key-value pairs (8 bytes each). In this way, the Data Calculator logs"
+"a cost of RandomAccess (1606552) to access the leaf node, followed"
+"by a sorted search of SortedSearch(ColumnStore, 250 ⇤ 8) to search"
+the keys. It uses the “ColumnStore” option as keys and values are
+"stored separately in each leaf in di erent arrays. Finally, a cost of"
+RandomAccess (2000) is incurred to access the target value in the
+values array (we have 8 ⇤ 250 = 2000 in each leaf).
+Sets of Operations. The description above considers a single
+operation. The Data Calculator can also compute the latency for a
+set of operations concurrently in a single pass. This is e ectively the
+same process as shown in Figure 5 only that in every recursion we
+may follow more than one path and in every step we are computing
+the latency for all queries that would visit a given node.
+Workload Skew and Caching E ects. Another parameter
+that can in uence caching e ects is workload skew. For exam-
+"ple, repeatedly accessing the same path of a data structure results"
+in all nodes in this path being cached with higher probability than
+others. The Data Calculator rst generates counts of how many
+times every node is going to be accessed for a given workload. Us-
+ing these counts and the total number of nodes accessed we get a
+factor p = count/total that denotes the popularity of a node. Then
+"to calculate the random access cost to a node for an operation k , a"
+"weightw = 1/(p ⇤sid ) is used, where sid is the sequence number of"
+this operation in the workload (refreshed periodically). Frequently
+accessed nodes see smaller access costs and vice versa.
+Training Primitives.All access primitives are trained on warm
+caches. This is because they are used to calculate the cost on a node
+that is already fetched. The only special case is the Random Access
+primitive which is used to calculate the cost of fetching a node.
+"This is also trained on warm data, though, since the cost synthesis"
+infrastructure takes care at a higher level to pass the right region
+"size as discussed; in the case this region is big, this can still result"
+in costing a page fault as large data will not t in the cache which
+is re ected in the Random Access primitive model.
+Limitations. For individual queries certain access primitives
+are hard to estimate precisely without running the actual code on
+"an exact data instance. For example, a scan for a point Get may"
+"abort after checking just a few values, or it may need to go all"
+"the way to the end of an array. In this way, while lower or upper"
+performance bounds can be computed with absolute con dence
+"for both individual queries and sets of queries, actual performance"
+estimation works best for sets.
+"More Operations. The cost of range queries, and bulk loading is"
+synthesized as shown in Figure 10 in appendix.
+Extensibility and Cross-pollination. The rationale of having
+"two Levels of access primitives is threefold. First, it brings a level of"
+abstraction allowing higher level cost synthesis algorithms to oper-
+"ate at Level 1 only. Second, it brings extensibility, i.e., we can add"
+new Level 2 primitives without a ecting the overall architecture.
+"Third, it enhances “cross-pollination” of design concepts captured"
+by Level 2 primitives across designs. Consider the following ex-
+ample. An engineer comes up with a new algorithm to perform
+"search over a sorted array, e.g., exploiting new hardware instruc-"
+"tions. To test if this can improve performance in her B-tree design,"
+"where she regularly searches over sorted arrays, she codes up a"
+benchmark for a new sorted search Level 2 primitive and plugs it
+in the Calculator as shown in Figure 4. Then the original B-tree
+design can be easily tested with and without the new sorted search
+across several workloads and hardware pro les without having to
+"undergo a lengthy implementation phase. At the same time, the"
+new primitive can now be considered by any data structure design
+"that contains a sorted array such as an LSM-tree with sorted runs, a"
+Hash-table with sorted buckets and so on. This allows easy transfer
+"of ideas and optimizations across designs, a process that usually"
+requires a full study for each optimization and target design.
+4 WHAT-IF DESIGN AND
+AUTO-COMPLETION
+The ability to synthesize the performance cost of arbitrary designs
+allows for the development of algorithms that search the possible
+design space. We expect there will be numerous opportunities in
+this space for techniques that can use this ability to: 1) improve
+the productivity of engineers by quickly iterating over designs and
+"scenarios before committing to an implementation (or hardware),"
+2) accelerate research by allowing researchers to easily and quickly
+"test completely new ideas, 3) develop educational tools that allow"
+"for rapid testing of concepts, and 4) develop algorithms for o ine"
+auto-tuning and online adaptive systems that transition between
+"designs. In this section, we provide two such opportunities for"
+what-if design and auto-completion of partial designs.
+What-if Design. One can form design questions by varying any
+one of the input parameters of the Data Calculator: 1) data structure
+"(layout) speci cation, 2) hardware pro le, and 3) workload (data"
+"and queries). For example, assume one already uses a B-tree-like"
+design for a given workload and hardware scenario. The Data Cal-
+culator can answer design questions such as “What would be the
+performance impact if I change my B-tree design by adding a bloom
+hardware and for diverse dictionary operations.
+lter in each leaf?” The user simply needs to give as input the high-
+level speci cation of the existing design and cost it twice: once
+with the original design and once with the bloom lter variation. In
+"both cases, costing should be done with the original data, queries,"
+"and hardware pro le so the results are comparable. In other words,"
+users can quickly test variations of data structure designs simply
+"by altering a high level speci cation, without having to implement,"
+"debug, and test a new design. Similarly, by altering the hardware or"
+"workload inputs, a given speci cation can be tested quickly on alter-"
+native environments without having to actually deploy code to this
+"new environment. For example, in order to test the impact of new"
+hardware the Calculator only needs to train its Level 2 primitives
+"on this hardware, a process that takes a few minutes. Then, one can"
+test the impact this new hardware would have on arbitrary designs
+by running what-if questions without having implementations of
+those designs and without accessing the new hardware.
+Auto-completion. The Data Calculator can also complete partial
+"layout speci cations given a workload, and a hardware pro le. The"
+process is shown in Algorithm 1 in the appendix: The input is a
+"partial layout speci cation, data, queries, hardware, and the set of"
+"the design space that should be considered as part of the solution,"
+"i.e., a list of candidate elements. Starting from the last known point"
+"of the partial speci cation, the Data Calculator computes the rest of"
+the missing subtree of the hierarchy of elements. At each step the
+algorithm considers a new element as candidate for one of the nodes
+of the missing subtree and computes the cost for the di erent kinds
+of dictionary operations present in the workload. This design is kept
+"only if it is better than all previous ones, otherwise it is dropped"
+before the next iteration. The algorithm uses a cache to remember
+speci cations and their costs to avoid recomputation. This process
+can also be used to tell if an existing design can be improved by
+marking a portion of its speci cation as “to be tested”. Solving the
+search problem completely is an open challenge as the design space
+drawn by the Calculator is massive. Here we show a rst step which
+allows search algorithms to select from a restricted set of elements
+which are also given as input as opposed to searching the whole
+set of possible primitive combinations.
+5 EXPERIMENTAL ANALYSIS,
+We now demonstrate the ability of the Data Calculator to help with,
+rich design questions by accurately synthesizing performance costs.,
+Implementation. The core implementation of the Data Calcu-,
+lator is in C++. This includes the expert systems that handle layout,
+primitives and cost synthesis. A separate module implemented in,
+Python is responsible for analyzing benchmark results of Level 2,
+access primitives and generating the learned models. The bench-,
+marks of Level 2 access primitives are also implemented in C++,
+such that the learned models can capture performance and hard-,
+ware characteristics that would a ect a full C++ implementation,
+of a data structure. The learning process for each Level 2 access,
+primitive is done each time we need to include a new hardware,
+"pro le; then, the learned coe cients for each model are passed to",
+the C++ back-end to be used for cost synthesis during design ques-,
+"tions. For learning we use a standard loss function, i.e., least square",
+"errors, and the actual process is done via standard optimization",
+"libraries, e.g., SciPy’s curve t. For models which have non-convex",
+"loss functions such as the sum of sigmoidsmodel, we algorithmically",
+set up good initial parameters.,
+Accurate Cost Synthesis. In our rst experiment we test the abil-,
+ity to accurately cost arbitrary data structure speci cations across,
+di erent machines. To do this we compare the cost generated au-,
+tomatically by the Data Calculator with the cost observed when,
+testing a full implementation of a data structure. We set-up the,
+"experiment as follows. To test with the Data Calculator, we manu-",
+ally wrote data structure speci cations for eight well known access,
+"methods 1) Array, 2) Sorted Array, 3) Linked-list, 4) Partitioned",
+"Linked-list, 5) Skip-list, 6) Trie, 7) Hash-table, and 8) B+tree. The",
+Data Calculator was then responsible for generating the design,
+of operations for each data structure and computing their latency,
+given a workload. To verify the results against an actual implemen-,
+"tation, we implemented all data structures above. We also imple-",
+mented algorithms for each of their basic operations:,", nGa geRet"
+"erimenG expe , nt aB au tl tak sL ro d Ud p td ee . Th",then starts
+with a data workload of 105 uniformly distributed integers and a,
+of mixed reads and writes (uniformly distributed inserts and point
+"reads) and hardware pro le HW3. In the rst scenario, all reads"
+"are point queries in 20% of the domain. In the second scenario,"
+"50% of the reads are point reads and touch 10% of the domain,"
+while the other half are range queries and touch a di erent (non
+intersecting with the point reads) 10% of the domain. We do not
+provide the Data Calculator with an initial speci cation. Given the
+"composition of the workload our intuition is that a mix of hashing,"
+"B-tree like indexing (e.g., with quantile nodes and sorted pages), and"
+"a simple log (unsorted pages) might lead to a good design, and so we"
+instruct the Data Calculator to use those four elements to construct
+a design (this is done using Algorithm 1 but starting with an empty
+speci cation. Figure 9 depicts the speci cations of the resulting
+data structures For the rst scenario (left side of Figure 9) the Data
+Calculator computed a design where a hashing element at the upper
+levels of the hierarchy allows to quickly access data but then data
+is split between the write and read intensive parts of the domain to
+simple unsorted pages (like a log) and B+tree -style indexing for
+the read intensive part. For the second scenario (right side of Figure
+"9), the Data Calculator produces a design which similarly to the"
+previous one takes care of read and writes separately but this time
+also distinguishes between range and point gets by allowing the
+part of the domain that receives point queries to be accessed with
+hashing and the rest via B+tree style indexing. The time needed
+for each design question was in the order of a few seconds up
+to 30 minutes depending on the size of the sample workload (the
+"synthesis costs are embedded in Figure 9 for both scenarios). Thus,"
+the Data Calculator quickly answers complex questions that would
+normally take humans days or even weeks to test fully.
+estimation on generated indexes [7] and even visual tools that help
+"with debugging [49, 50]. While the Data Calculator and GiST share"
+"motivation, they are fundamentally di erent: GiST is a template to"
+implement tailored indexes while the Data Calculator is an engine
+that computes the performance of a design enabling rich design
+questions that compute the impact of design choices before we start
+"coding, making these two lines of work complementary."
+Modular/Extensible Systems and System Synthesizers. A key
+"part of the Data Calculator is its design library, breaking down a"
+design space in components and then being able to use any set of
+those components as a solution. As such the Data Calculator shares
+"concepts with the stream of work on modular systems, an idea that"
+has been explored in many areas of computer science: in databases
+"for easily adding data types [31, 32, 58, 59, 68] with minimal im-"
+"plementation e ort, or plug and play features and whole system"
+"components with clean interfaces [11, 14, 17, 45, 53, 54], as well as"
+"in software engineering [61], computer architecture [60], and net-"
+works [46]. Since for every area the output and the components are
+"di erent, there are particular challenges that have to do with de n-"
+"ing the proper components, interfaces and algorithms. The concept"
+of modularity is similar in the context of the Data Calculator. The
+goal and application of the concept is di erent though.
+Additional Topics. Appendix B discusses additional related topics
+such as auto-tuning systems and data representation synthesis in
+programming languages.
+7 SUMMARY AND NEXT STEPS
+Through a new paradigm of rst principles of data layouts and
+"learned cost models, the Data Calculator allows researchers and"
+engineers to interactively and semi-automatically navigate complex
+"design decisions when designing or re-designing data structures,"
+"considering new workloads, and hardware. The design space we"
+presented here includes basic layout primitives and primitives that
+enable cache conscious designs by dictating the relative positioning
+"of nodes, focusing on read only queries. The quest for the rst"
+principles of data structures needs to continue to nd the primi-
+"tives for additional signi cant classes of designs including updates,"
+"compression, concurrency, adaptivity, graphs, spatial data, version"
+"control management, and replication. Such steps will also require"
+innovations for cost synthesis. For every design class added (or
+"even for every single primitive added), the knowledge gained in"
+terms of the possible data structures designs grows exponentially.
+"Additional opportunities include full DSLs for data structures, com-"
+"pilers for code generation and eventually certi ed code [64, 71],"
+new classes of adaptive systems that can change their core design
+"on-the- y, and machine learning algorithms that can search the"
+whole design space.
+8 ACKNOWLEDGMENTS
+We thank the reviewers for valuable feedback and direction. Mark
+Callaghan provided the quotes on the importance of data structure
+"design. Harvard DASlab members Yiyou Sun, Mali Akmanalp and"
+Mo Sun helped with parts of the implementation and the graph-
+ics. This work is partially funded by the USA National Science
+Foundation project IIS-1452595.
+6 RELATEDWORK,
+To the best of our knowledge this is the,rst work to discuss the
+problem of interactive data structure design and to compute the,
+"impact on performance. However, there are numerous areas from",
+where we draw inspiration and with which we share concepts.,
+"Interactive Design. Conceptually, the work on Magic for layout",
+on integrated circuits [60] comes closest to our work. Magic uses,
+a set of design rules to quickly verify transistor designs so they,
+"can be simulated by designers. In other words, a designer may",
+propose a transistor design and Magic will determine if this is,
+"correct or not. Naturally, this is a huge step especially for hardware",
+design where actual implementation is extremely costly. The Data,
+Calculator pushes interactive design one step further to incorporate,
+cost estimation as part of the design phase by being able to estimate,
+the cost of adding or removing individual design options which,
+in turn also allows us to build design algorithms for automatic,
+discovery of good and bad designs instead of having to build and,
+test the complete design manually.,
+Generalized Indexes.One of the stronger connections is the work,
+"on Generalized Search Tree Indexes (GiST) [6, 7, 38, 47–50]. GiST",
+aims to make it easy to extend data structures and tailor them to,
+"speci c problems and data with minimal e ort. It is a template, an",
+abstract index de nition that allows designers and developers to,
+implement a large class of indexes. The original proposal focused on,
+record retrieval only but later work added support for concurrency,
+"[48], a more general API [6], improved performance [47], selectivity",
