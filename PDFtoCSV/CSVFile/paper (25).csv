@@ -1,0 +1,1069 @@
+Expressive Query Construction through Direct
+Manipulation of Nested Relational Results
+ABSTRACT
+"Despite extensive research on visual query systems, the standard"
+way to interact with relational databases remains to be through SQL
+queries and tailored form interfaces. We consider three require-
+ments to be essential to a successful alternative: (1) query spec-
+"ification through direct manipulation of results, (2) the ability to"
+view and modify any part of the current query without departing
+"from the direct manipulation interface, and (3) SQL-like expres-"
+siveness. This paper presents the first visual query system to meet
+all three requirements in a single design. By directly manipulating
+"nested relational results, and using spreadsheet idioms such as for-"
+"mulas and filters, the user can express a relationally complete set of"
+"query operators plus calculation, aggregation, outer joins, sorting,"
+"and nesting, while always remaining able to track and modify the"
+state of the complete query. Our prototype gives the user an expe-
+"rience of responsive, incremental query building while pushing all"
+actual query processing to the database layer. We evaluate our sys-
+tem with formative and controlled user studies on 28 spreadsheet
+users; the controlled study shows our system significantly outper-
+forming Microsoft Access on the System Usability Scale.
+Figure 1: Spreadsheet-style,,formula editing,in,a,,nested,re-
+lational result.,The query,structure,is encoded,,,in the,ta-
+"ble header, which shows three joined table instances (bold la-",,,,,,,
+"bels), one-to-many",relationships,"( ),",sorting (,"),",,active,fil-
+"ters ( , ), and a formula (",,).,,,,,
+after OK,and Cancel”,[18].,Spreadsheets,lack,basic,,database
+functionality,such,as joins,and,"views, but demonstrate",,,the great
+"value of usable, general-purpose data manipulation tools [4].",,,,,,,
+Shneiderman [50] attributes,,,the usability of,the spreadsheet,,,to
+its nature as a direct manipulation interface. The properties of such,,,,,,,
+"an interface include “visibility of the object of interest”, “rapid, re-",,,,,,,
+"versible, incremental actions”, and “replacement of complex com-",,,,,,,
+mand language syntax by direct manipulation of the object of in-,,,,,,,
+terest”. Shneiderman paraphrases Harold Thimbleby: “The display,,,,,,,
+"should indicate a complete image of what the current status is, what",,,,,,,
+"errors have occurred, and what actions are appropriate.”",,,,,,,
+We agree with Liu and Jagadish [41] that a successful solution,,,,,,,
+to the visual,query,language,problem,must come,in the,,form of
+a spreadsheet-like direct manipulation interface.,,,,"In particular, we",,,
+consider three requirements that have yet to be met in a single user,,,,,,,
+interface design:,,,,,,,
+R1. Query,specification,through,,direct manipulation,of,,results.
+The,user should,build,queries,incrementally,through,,a
+sequence of operations performed directly on the data in the,,,,,,,
+"database,",as,seen through,,the result of each,intermediate,,
+query,[41].,In Shneiderman’s,,"terms, the object of interest",,,
+is not,"the query,",but,the,"data, as when working",,,with a
+spreadsheet.,,,,,,,
+"R2. The ability to view and modify any part of the current query,",,,,,,,
+including,operations,performed,,many steps,"earlier,",,without
+"","Four decades after Query by Example [61], the broad problem"
+of,Making Database Systems Usable [30] remains open. Tech-
+nical,users still interact with relational data through hand-coded
+"SQL, while non-technical users rely on restrictive form- and report-",
+"based interfaces tailored, at great cost,",for their specific database
+"schema [37, 32, 4]. Queries that involve “complex aggregates, nest-",
+"ing, correlation, and several other features remain on a tall pedestal",
+approachable,only by the initiated” [28]. Simple report queries
+"traversing one-to-many relationships in the database schema, such",
+"as retrieving “a list of parts, and for each part a list of suppliers and",
+"a list of open orders”,",are painful to define for programmers and
+largely inaccessible to end users.,
+"","Meanwhile, users from a wide range of backgrounds seem"
+"happy,","indeed eager, to interact with their data if it is served to"
+"them in spreadsheet form. “Export to Excel”, the joke goes, “is the",
+third most common button in data and business intelligence apps...,
+"",redoing subsequent steps or departing from the direct manip-
+"","ulation interface. This is tricky in light of R1, because the"
+"",user will be looking at and manipulating the result of a query
+"",rather than an actual query expression. The mapping between
+"",the two is not obvious. [41]
+R3.,SQL-like expressiveness from within the direct manipulation
+"",interface. R1 and R2 can be trivially met if only simple
+"","queries are allowed. For example, Excel’s filter feature"
+"","works by direct manipulation of results, and allows its"
+"",complete state to be viewed and modified from within the
+"","same interface, but supports only basic selection queries."
+"","To compete with SQL, a visual query system should allow"
+"",the user to express any query commonly supported by
+"","SQL implementations, including arbitrary (multi-block)"
+"","combinations of operations such as joins, calculations, and"
+"",aggregations.
+"In this paper, we present SIEUFERD (pronounced soy-fird), the",
+first visual query system to meet all of the requirements above in,
+a single user interface design.,The key insight is that given a suit-
+"able data model for results, the complete structure of a query can",
+be encoded in the schema of the query’s own result.,This in turn
+allows the user interface to display the query and its result in a sin-,
+"gle visual representation, which can then be manipulated directly",
+to modify,"any part of the query. Specifically, we allow queries"
+"to produce results from the nested relational data model [29, 38],",
+and display results using a nested table layout [5].,In our visual
+"representation,",the header area of the result’s nested table layout
+"encodes the structure of the query, which can then be manipulated",
+using spreadsheet idioms such as formulas and filters.,The use of
+nested results affords a natural visualization of operations such as,
+"joins and aggregation, and allows the user to see, in context, inter-",
+mediate tuples produced in any part of the query.,
+Using,"our system, the user can express a relationally"
+"complete [17] set of query operators plus calculation, aggregation,",
+"outer joins, sorting, and nesting (see Appendix A for details). This",
+covers the full set of query operators generally considered as the,
+"minimum to model SQL [6, 26],","and expresses, for example, all"
+SELECT statements valid,"in SQL-92. Furthermore, the ability to"
+produce,nested results makes our system suitable for complex
+report,creation tasks that would otherwise require multiple SQL
+queries and custom programming to merge and format results. Our,
+Java-based prototype gives,"the user an experience of responsive,"
+incremental query building while pushing all query processing to,
+the database layer.,
+In an initial,"formative user study, 14 participants were able to"
+solve,"complex query tasks with a minimal amount of training,"
+with,many expressing strong levels of satisfaction with the tool.
+In a,"second, controlled study, another 14 participants rated both"
+SIEUFERD and the query designer found in Microsoft Access on,
+the System Usability Scale (SUS) [8] after doing a series of tasks,
+on each. Users rated SIEUFERD 18 points higher on average than,
+Access.,This corresponds to a 46 percentage point difference on a
+percentile scale of other studies in the Business Software category.,
+2.,RELATED WORK
+Visual query systems have been surveyed by Catarci et al. [11],
+"and,","recently, El-Mahgary and Soisalon-Soininen [21]. Systems"
+"discussed in this section include,","in particular, those that employ"
+"direct manipulation, nested results, or optimizations for traversing",
+relationships in the database. We omit systems that rely entirely on,
+text-based languages for query construction.,Table 1 categorizes
+"Table 1: Summary of related systems, evaluated as visual query"
+interfaces. R1 is indicated where some class of queries can be
+initially specified by direct manipulation of results. R2 is indi-
+cated where all parts of such queries can subsequently be mod-
+ified through similar means. R3 is indicated where the same
+class of queries is relationally complete and supports aggrega-
+tion in arbitrary multi-block queries.
+"systems by query representation style, and provides an assessment"
+of each system against the requirements set forth in the introduc-
+tion.
+"Besides our core requirements, Table 1 also indicates which sys-"
+"tems support nested results, i.e. a graphical equivalent of a hierar-"
+"chical data model such as XML, JSON, or nested relations. This"
+handles report-style queries that encode multiple parallel one-to-
+"many relationships in a single result, as when retrieving “a list of"
+"parts, and for each part a list of suppliers and a list of open or-"
+ders” [5]. Systems that base their result representation on a single
+"flat table of primitive values, such as Tableau [54], are unable to"
+express such queries. The same tends to hold for any system that
+"takes its input from a single joined SQL query, since multivalued"
+dependencies [23] in the flattened result (PARTS SUPPLIERS and
+PARTS ORDERS in the preceding example) would interact to pro-
+duce a pathological number of tuples for even small inputs. Some
+"systems, like Tableau and Gneiss [13], support a restricted form"
+"of nesting, where an otherwise flat result table can be grouped"
+"into a single-branch hierarchy, or a finite set of such (a dashboard"
+"in Tableau, or a set of hierarchical tables in Gneiss). This still"
+does not handle PARTS SUPPLIERS/ORDERS-type queries from
+"the example above. Tableau, as well as other systems based on"
+"the pivot table concept, produce cross-tabulated rather than nested"
+results; these concepts are orthogonal. Besides their use in visual
+"query systems, nested data models have been used both in opti-"
+"mization [53, 10] and expressiveness analysis [40] of query lan-"
+guages with aggregate functions.
+We first discuss visual query systems that do not fall in the direct
+manipulation category. Form-based systems originated with Query
+"by Example (QBE) [61], where the user populates a set of empty"
+"skeleton tables with conditions, variables (examples), and output"
+Formula bar: Shows t
+Result header: Visu-
+ally encodes both the
+structure of the query
+and the schema of its
+result. Icons indicate
+query-related state
+associated with each
+fi eld in the schema.
+Field selector: Pop-
+up displaying a tree
+representation of
+"the query structure,"
+including exact join
+"conditions, centered"
+around the selected
+fi eld. The selector
+includes previously
+hidden fi elds as well
+as fi elds that can be
+reached through joins
+over known foreign
+key relationships.
+Filter popup: Allows
+the user to associ-
+ate a fi lter with the
+currently selected
+fi eld. The list of val-
+ues available to fi lter
+on is generated au-
+tomatically using a
+separate database
+query. Filters may be
+associated with either
+primitive fi elds or re-
+lation fi elds.
+Result area: Displays,Context menu:,Ex-
+the currently open que-,poses a complete set,
+ry and its nested re-,of query manipulation,
+lational result. Labels,"actions, and serves",
+and formulas can be,as a legend for,all
+edited using a spread-,icons that can appear,
+sheet-like cursor.,in the result header.,
+"Figure 2: The SIEUFERD query interface. To create queries, users start from a simple tabular view of a table in the database and"
+"add filters, formulas, and nested relations. The integrated result and query representation is displayed continuously as the user"
+"interacts with the data. The particular query above instantiates six database tables (one per nested relation), contains five joins (each"
+"child relation against its parent), and is evaluated using five generated SQL queries (one for each one-to-many relationship ). This"
+query was constructed purely by checking off the appropriate fields and foreign key relationships in the field selector.
+indications. ESCHER [59] and QBEN [42] extend QBE to support
+"nested results, while PERPLEX [52] supports general-purpose"
+logic programming. The ubiquitous search forms of commercial
+database applications can be seen as restricted versions of
+QBE tailored for a specific schema; Form Customization [33]
+generalizes such forms by considering the form designer as part of
+"the query system. In diagram-based systems, the user manipulates"
+"queries for example through a schema tree or schema diagram, as"
+"in Query by Diagram (QBD) [3], Query by Browsing (QBB) [47],"
+"QURSED [46], and App2You [36], or through a diagrammatic"
+"query plan, as in VisualTPL [15]. The diagram-based query"
+"building style is common in commercial tools–Microsoft Access,"
+"Navicat, pgAdmin, dbForge, Alteryx etc. The general problem"
+with both form-based and diagram-based interfaces is that users
+must manipulate queries through an abstract query representation
+that is divorced from the actual data that is being retrieved. To
+"construct and understand queries, the user must look back and"
+forth between the query representation on one side of the screen
+and a separate result representation on the other. Thus we do
+not consider these systems to be direct manipulation interfaces
+"(requirement R1)."
+"In the direct manipulation category, we now consider algebraic"
+"user interfaces. In such systems, the user builds queries by select-"
+"ing, one step at a time, a series of operations to be applied to the"
+currently displayed result. Each operation is applied to the result of
+all previous operations. Formal expressiveness is easy to achieve in
+"algebraic interfaces, since the relevant relational operators can sim-"
+ply be exposed to the user directly. The main problem with alge-
+"braic interfaces is that the user has no direct way to, in the words of"
+"Liu and Jagadish, “modify an operation specified many steps ear-"
+lier without redoing the steps afterwards” [41] (requirement R2).
+"For example, in GestureDB [45],",the user has no way to modify
+a filter on a column that was subsequently used in an aggregation,
+or removed with a projection. Similar problems exist in R2,"[27],"
+"AppForge [60], CRIUS [48], and Gneiss",[13]. SheetMusiq [41]
+provides a partial solution by using an algebra where certain op-,
+erators can commute out of a complex expression for subsequent,
+"modification; however, the technique breaks down for expressions",
+enclosed in binary operators such,"as joins, set union, or set dif-"
+"ference. In other systems, the underlying algebraic expression is",
+"exposed directly, as in the procedural data manipulation scripts of",
+"Wrangler [34], the XQuery-like mashup scripts of Mashroom [25],",
+or the diagram-based representation in TableTalk [22].,"Thus, only"
+the initial query specification can be done through direct manipu-,
+lation; tweaking and examination of existing queries must be done,
+"with a separate, indirect interface.",
+"With clever use of formulas,",Tyszkiewicz [57] shows that
+existing spreadsheet products can be considered expressive enough,
+to formulate arbitrary SQL queries.,If we consider Excel as a
+"query system, however, only a subset",of such queries could be
+said to be constructible by direct,manipulation. Heavy reliance
+on set-based formula functions,"such as INDEX, MATCH, and"
+SUMPRODUCT means that spreadsheet formulas soon take the role,
+"of a text-based query language,",with a vocabulary far removed
+from that of typical query tasks.,This would also be the case for
+spreadsheet programming systems,"such as Forms/3 [9], Object"
+Oriented Functional Spreadsheets,"[16], A1 [35], and Object"
+Spreadsheets [43].,
+"Last, we consider direct manipulation systems that overlay their",
+"query representation on the result of the same query, with the struc-",
+ture of the query reflecting the visual structure of the result.,This
+solves the mapping problem of requirement R2.,The problem is
+P R Visible. Whether this field should be visible in the result layout.
+P R Label. Presentation label for the field; default is technical column/table name.
+P R Filter. A filter condition. Filters are stored in a format that can be generated
+from and restored to a spreadsheet-style filter selection UI.
+P R Sort. An optional ordinal indicating the position of this field among the
+"parent relation’s sort terms, plus an ascending/descending flag."
+oPr g m  JoinedOn. An optional reference to a primitive child field of the parent
+relation’s parent relation. This denotes an equijoin condition between
+this field and the referenced field.
+P  ColumnDefinition. Either the technical name of a column in the database
+"table specified by InstantiatedTable, or a formula expression over fields"
+in the query model.
+R InstantiatedTable. The technical name of a database table to instantiate at
+"this level. Allowed to be absent, in which case semantics are equivalent"
+"to instantiating a single-tuple, zero-column table."
+"R CollapseDuplicateRows. False by default, in which case the primary key"
+fields of InstantiatedTable are projected in intermediate and retrieved
+results even if not Visible.
+"R HideParentIfEmpty. If true, an inner join is used between this relation and"
+"its parent. Set automatically by the filter UI, but can be overridden."
+"Figure 3: Terminology of the nested relational data model, il-"
+lustrated on a nested table layout.
+that current such representations are not expressive enough to sup-
+"port arbitrary queries (requirement R3). For example, the direct"
+manipulation interfaces of Tabulator [7] and GBXT [2] support fil-
+"ters and joins over schema relationships, but are unable to express"
+"calculation, aggregation, general-purpose joins, or other binary op-"
+"erators. In DataPlay [1], direct manipulation is used only to choose"
+between universal and existential qualifiers. Tableau [54] allows
+a large class of two-dimensional visualizations to be created and
+manipulated through direct manipulation of table headers and cor-
+"responding axis shelves; however, queries involving calculations"
+or binary operators must be configured using a separate interface
+rather than through direct manipulation. Our own system is the first
+to achieve SQL-like expressiveness from within a direct manipula-
+tion interface based on an overlaid query/result representation.
+3. SYSTEM DESCRIPTION
+3.1 Overview
+Our core query building interface is shown in Figure 2. All user
+"interactions are initiated from the result area, which shows the cur-"
+"rent query’s nested relational result, formatted using a nested table"
+"layout. In a nested table layout, the table’s header area visually"
+"encodes the schema of the nested result, including which fields are"
+nested under others in the hierarchical schema. Because our system
+"maps all query-related state to specific fields in the result schema,"
+the result’s table header simultaneously becomes a visual represen-
+"tation of the query that generated it. A set of icons, carefully de-"
+signed to allow every aspect of the query state to be represented in
+"the header, is used to augment the information that can be derived"
+from the names and positions of fields.
+"Starting from any selection of fields (columns) in the result area,"
+"the user may open a context menu of query-related actions, which"
+also serves as a legend for icons that may appear in the result
+"header. Query actions modify the query state, not the data in the"
+"database. Whenever a visual query is modified, the system gener-"
+ates and executes one or more corresponding SQL queries to eval-
+"uate it, merges the returned flat results into a single nested result,"
+"and displays the latter to the user. At the same time, the fields and"
+iconography in the new result’s header reflect the updated state of
+the modified query.
+"To keep the result layout compact, several aspects of the query"
+state are indicated with icons in the header but are not displayed
+in full until the user requests it. In these cases we leverage well-
+established spreadsheet idioms to expose the underlying state. A
+filter icon ( ) next to a field label indicates the presence of a filter
+"on that field, which can be manipulated by opening the filter popup"
+from the context menu. A formula icon ( ) indicates that the
+"Table 2: Properties in the SIEUFERD query model, associated"
+with each field in the nested relational schema that defines a
+"visual query. P, R, and P R indicate properties applicable to"
+"primitive fields, relation fields, or both, respectively. Properties"
+with icons correspond directly to icons shown in the result area
+and actions in the user-accessible context menu from Figure 2.
+primitive field in question is a calculated field with an associated
+spreadsheet-style formula. The actual formula can be edited using
+"the formula bar above the result area, or directly in any non-header"
+"cell belonging to the field’s column, as illustrated in Figure 1. Fi-"
+"nally, as in a spreadsheet, our system allows fields (columns) to be"
+hidden from view and later recalled for inspection. If the hidden
+"field was used for filtering or sorting, or is referenced from a for-"
+"mula, a dashed cell icon ( ) is shown for the relevant dependent"
+field to indicate that the visible result depends on a hidden portion
+of the query. Hidden fields can be recalled using the field selector
+"popup, which shows an expandable list of available fields, centered"
+around the field it was opened for. The field selector also serves to
+"suggest new joins over known foreign key relationships, modeled"
+"as pre-existing hidden fields, and to display exact join conditions."
+"For the remainder of this paper, we will use the following ter-"
+minology when referring to concepts in the nested relational data
+"model: A value is either a primitive or a relation, where a relation"
+"is defined as a set of tuples, each containing a set of fields iden-"
+"tified by labels, each containing a value, recursively. The schema"
+"of a value either defines the value to be a primitive, or defines the"
+"value to be a relation, with schemas further specified for each of"
+"the latter’s fields, recursively. See Figure 3."
+3.2 Query Model
+We now discuss the specific structure of queries in our system.
+A visual query is modeled as a nested relational schema that has
+been annotated with query- and presentation-related properties on
+each field. See Table 2. We refer to the annotated schema as
+the SIEUFERD query model. When SQL queries are generated
+from a visual query and flat result sets have been assembled into
+"a nested relational result, the schema of the nested result is identi-"
+cal to the schema in the query model. This correspondence makes
+it straightforward to translate high-level user interactions on the
+visualized query result to concrete modifications on the underly-
+"ing query model, and conversely, to indicate the state of the query"
+model in the table header of the visualized result.
+"Table instantiation. As a basic rule, each relation in the query"
+model gets to retrieve data from one concrete table in the underly-
+ing database; that relation is said to instantiate the database table.
+The following is a simple query that,instantiates,,the,table called
+COURSES and displays a selection of its fields:,,,,
+"","In the SIEUFERD query model, the query above is represented"
+as,a nested relational schema whose root relation references the
+COURSES,"table from its INSTANTIATEDTABLE property, with"
+primitive,child fields storing the technical name of each table
+column,in their respective COLUMNDEFINITION properties.
+Similar,encodings are used for all query states that will be
+discussed in this section; see Table 2 for details.,
+"",Nesting and joins. Queries need to be able to incorporate data
+from multiple tables.,"Commonly, tables need to be equijoined to-"
+"gether, for example when the user wishes to examine data spread",
+across foreign key relationships in a normalized database schema.,
+In,"the SIEUFERD query model, the introduction of a new table"
+"instance can be done by defining a nested relation, optionally con-",
+strained by an equijoin condition against its parent relation:,
+The hidden fields could be recalled at any time using the field
+"selector. As before, the field selector can also be used to see the"
+exact join conditions between READINGS and COURSES.
+Nested relations can be used very effectively to display data
+spread over many tables in a database schema. In the following
+"example, we pull data from five database tables to see more"
+information about each university course:
+Notice that tuples in the READINGS relation occur independently
+of tuples in the SECTIONS relation; this kind of visualization can
+not be constructed in tools based on flat tabular results (see Related
+Work). Also notice the absence of the of the one-to-many icon ( )
+on the AREA relation: because the latter relation was joined on its
+"instantiated table’s primary key, our system deduced that at most"
+one tuple can exist in AREA for each parent tuple in COURSES.
+Sorting. Each nested relation can be sorted on a sequence of its
+"direct child fields, indicated by subscripted sort icons ( 123) on the"
+"latter. In the following example, the root-level COURSES relation is"
+"sorted ascending on the MAX_ENROLL field, while individual sets"
+"of READINGS are sorted by AUTHOR_NAME, then by TITLE:"
+"In the query above,",the nested relation,READINGS,instantiates
+"the database table with the same name, and equijoins itself against",,,
+"its parent relation COURSES on the COURSE_ID field, as indicated",,,
+by the joinLiocrognm( ) on the latter.,The other side of the equijoin,,
+condition is the ID field in the COURSES relation.,,The latter infor-,
+"mation is omitted from the result layout to save space, but is dis-",,,
+played in the field selector (Figure 2).,The one-to-many icon (,,)
+on the READINGS relation indicates that our system decided the lat-,,,
+ter may contain more than one tuple for each corresponding tuple,,,
+"in COURSES, the parent relation.",,,
+The joins described here have different semantics than the tra-,,,
+ditional flat joins encountered in SQL and most other visual query,,,
+tools. Rather than duplicating tuples on one side of the operator for,,,
+"each occurrence of a matching tuple on the other, each tuple from",,,
+the parent side of the join has a nested relation added to it holding,,,
+zero or more matching tuples from the child side.,,This operator,
+"is known formally as a nest equijoin [53],",,though we will simply,
+use the term join when unambiguous.,One convenient property of,,
+nest equijoins is that tuples on the,left-hand side of,the operator,
+do not disappear when the join fails to find matching tuples on the,,,
+right; this can be seen in the query above for the course AMERICAN,,,
+"POLITICS, which has no books in its reading list.",,,
+"It is often desirable to hide technical primary key fields, fields",,,
+made redundant by equijoin conditions (e.g.,,"COURSE_ID), or oth-",
+"erwise uninteresting fields, for presentation purposes.",,,Continuing
+"the example above, our query model allows us to hide several fields",,,
+without altering the query semantics:,,,
+"It is possible to sort on both primitive and relation fields, though"
+we omit the exact semantics of the latter case here. Following any
+"explicit sort terms, our system automatically sorts every relation on"
+a tuple-identifying subset of its retrieved fields. This ensures that all
+query results are retrieved in a deterministic order. The automatic
+sort is usually on an indexed primary key; see set projection below.
+"Filter. Using the filter popup (Figure 2), a filter can be defined"
+"on any field, indicated by the filter icon ( ). Filters on relation"
+"fields restrict the set of tuples retrieved in that relation, while filters"
+on primitive fields restrict the tuples of the parent relation. In the
+"following example, the MEETINGS relation is filtered to show only"
+tuples for which the DAY is W:
+The calculated field,"DURATION, marked",,with,the,formula,
+"icon ( ), is evaluated",once for each,tuple,in,"MEETINGS,",,its
+"containing relation. Using another calculated field, we can add up",,,,,,
+"the durations as well, at the level of each course:",,,,,,
+"By default,",the,effect,of,a,filter,in,a,nested,relation,is,propa-
+gated all the way to the root of the query by means of a HIDE PAR-,,,,,,,,,,,
+"ENT IF EMPTY setting on each intermediate relation, indicated by",,,,,,,,,,,
+the arrow-towards-root icon (,,,,,) on the SECTIONS and MEETINGS,,,,,,
+relations above.,In,the,"example,",,the,,courses,ROMAN,,ART,and
+RUSSIAN DRAMA have disappeared because they do not have any,,,,,,,,,,,
+Wednesday sections.,,"If,",rather,,than,retrieving,,,“a list of,courses,
+"with at least one Wednesday section”, we wanted to retrieve “a list",,,,,,,,,,,
+"of all courses,",showing,,sections,,on,Wednesday,,,"only”,",we,could
+deactivate HIDE PARENT,,,IF EMPTY on the SECTIONS relation:,,,,,,,,
+"When using aggregate functions such as SUM or COUNT, the re-"
+lation in which the calculated field is defined determines the level at
+"which aggregate values are grouped. In the example above, because"
+"the TOTAL DURATION field is a child of the COURSES relation, a"
+"total is calculated for each course rather than, say, for each section."
+Each course includes in its total only tuples from the MEETINGS
+relation that are descendants of that course’s tuple in the COURSES
+relation.
+It is permitted for a formula to reference fields outside its own
+"containing relation, as in the following example:"
+Formulas. An important part of the expressiveness offered by
+SQL is the ability to include scalar and aggregate computations
+over primitive values in any part of the query. In the SIEUFERD
+"query model, both kinds of calculations are supported by means of"
+"calculated fields. A calculated field is a primitive field, added to"
+"any relation by the user, that takes its value from a formula rather"
+than from a particular column in an instantiated database table.
+"Like other fields, calculated fields can be sorted or filtered on."
+SIEUFERD formulas are syntactically similar to spreadsheet for-
+"mulas, but belong to and reference entire columns of field values"
+rather than hard-coded ranges of cells. This allows SIEUFERD
+"queries, like SQL queries, to be defined independently of the exact"
+data that might reside in a database at any given time. Without this
+"design, the user might have to rewrite formulas if the data in the"
+"underlying data source changes, or if other parts of the query are"
+changed in such a way as to add or remove tuples in the result. For-
+getting to update formulas when input data is changed is a common
+"kind of error in spreadsheets [31, 12], which we avoid."
+The restriction that calculated fields always be primitive fields
+is an important one; we do not wish formulas to take the role of a
+textual query language embedded within the visual one. Formulas
+"do not provide a relational algebra, but rather allow simple compu-"
+tations over primitive values.
+"Continuing the course catalog example, we can calculate the du-"
+ration of each meeting of a course section:
+"Here, the formula",in,the PERCENT,,field references,the,TOTAL
+DURATION field,of the,outer,,COURSES relation.,This is,analo-
+gous to a correlated,subquery,,,in SQL. Such,outward references,
+are not crucial to our query model’s expressiveness; we eliminate,,,,,,
+them using a decorrelation technique like that described by Van den,,,,,,
+"Bussche and Vansummeren [58, p. 8].",,,,,,
+Filters and aggregate functions.,,,,When an aggregate function,,
+"references a relation with a filter applied to it, the filter is evaluated",,,,,,
+"before the aggregate. In the following example, the SECTIONS re-",
+lation is filtered to only include lecture-type sections.,The TOTAL
+DURATION for each course changes accordingly:,
+3.3 Query Building,
+"Having explained the query model, we now show how the user",
+would actually build queries using our direct manipulation,inter-
+face. We do this by means,of an example query building ses-
+sion. The user is an investigative journalist who is writing a story,
+about ethanol biofuel lobbying,"[20]. She has compiled, in the"
+"table PLANTS_OS, a list of major ethanol producers1,",and would
+"like to find the total lobbying expenditures of each. Another table,",
+"LOBBYING, contains quarterly lobbying reports from US corpora-",
+"tions in the years 1998 through 2012 (727,927 tuples)2.",
+Base table. The user starts by opening the table of ethanol pro-,
+ducers as a template for the new query:,
+It is equally valid to define a filter on the output side of an aggre-
+"gate, e.g. on TITLE or TOTAL DURATION in the example above."
+Flat joins. Traditional flat joins can be expressed by referencing
+a descendant relation from a formula without enclosing the
+"reference in an aggregate function. In the following example,"
+each course title is repeated once for each distinct author name
+"in the reading list, because the AUTHOR REFERENCE field in the"
+COURSES relation references the READINGS relation without the
+use of an aggregate function:
+"Join. To add another table to the query, the user selects the col-"
+umn or columns to join on and invokes the JOIN action from the
+context menu. This opens a dialog box for selecting the table to join
+"with, in this case LOBBYING, and for selecting the corresponding"
+columns from the latter to be matched in an equijoin constraint. The
+user joins the PLANTS_OS and LOBBYING tables on the COMPANY
+"and ULTORG fields, respectively:"
+"The actual behavior is that of a left join, with a null value being"
+"returned for the course AMERICAN POLITICS, which has no read-"
+"ings in its reading list. To express an inner join instead, the HIDE"
+PARENT IF EMPTY setting could be enabled on the READINGS re-
+lation. The left join semantics of these inward formula references
+help our visual query language maintain some desirable properties.
+"In particular, the mere introduction of a new calculated field (e.g."
+AUTHOR REFERENCE) will never cause tuples to disappear from
+said field’s containing relation (COURSES).
+"Set projection. By default, tuples retrieved for a relation always"
+"include the primary key fields of the relation’s instantiated table,"
+even if the user has hidden those fields from view. This allows our
+system to keep result tuples in a stable order as the user hides or
+"shows fields, and to keep a one-to-one relationship between tuples"
+on the screen and tuples in instantiated database tables. It also al-
+"lows us to generate more efficient SQL queries, for example by"
+avoiding expensive SELECT DISTINCT statements. The automatic
+inclusion of primary key fields in the projection of a particular re-
+lation can be avoided by means of the HIDE DUPLICATE ROWS
+"option, indicated by the bracket icon ( ):"
+In cases where the database defines explicit foreign key relation-
+"ships between tables, use of the above JOIN dialog is unnecessary;"
+"instead, all available joins will be available as hidden relations in"
+the field selector. The effect is a schema navigation capability anal-
+"ogous to that of QBB [47], AppForge [60], and App2You [36]."
+"Hide fields. After the join, a lot of columns are shown, so the"
+user selects a few of them and invokes the HIDE action:
+It is now easier to get a sense of the data.,We have a new child
+"relation field, called LOBBYING, containing",the lobbying reports
+for each company:,
+A new inflation-adjusted total can now be added as a calculated
+"field at the PLANTS_OS level, shown adjacent to the existing non-"
+adjusted sum:
+Sort. The user decides to sort the lobbying reports for each com-
+"pany most-recent-first, invoking the SORT DESCENDING action on"
+the LYEAR field and then invoking the SORT DESCENDING AF-
+TER PREVIOUS action on the LTYPE field. This sorts individual
+LOBBYING relations by year ( ) and then by quarter ( 2):
+"Filter. Lobbying reports may sometimes be amended, in which"
+case the superseded reports should be excluded from totals to
+avoid double counting. The user can look for superseded reports
+by invoking the FILTER action on the LUSE field and selecting the
+value N:
+Aggregate formula. The user would now like to calculate a total
+lobbying amount for each company. She invokes the INSERT CAL-
+CULATED FIELD AFTER action to insert a calculated field ( ) next
+"to the COMPANY field, and enters the name SUM OF AMOUNTS in"
+the new column’s label cell. She then moves the cursor to one of
+"the column’s value cells, and enters a sum formula, clicking the"
+AMOUNT column to insert the column reference:
+The user sees that there are superseded reports in the database
+"with non-zero dollar amounts, and inverts the filter to exclude them."
+Select fields. The user now decides to hide the individual reports
+altogether and instead reintroduce some of the fields that were hid-
+"den from the PLANTS_OS relation before, using the field selector:"
+"Unlike in a spreadsheet, there is no need to “drag down” the sum"
+"formula; it is always evaluated once for each tuple in PLANTS_OS,"
+its parent relation.
+Scalar formula. Reported lobbying amounts come from differ-
+"ent years, some going back to 1998. The user would like to calcu-"
+late inflation-corrected totals. A separate table CPI contains yearly
+Consumer Price Index values normalized for 2012. The user per-
+"forms another JOIN, this time between LOBBYING and CPI, on the"
+"LYEAR and CYEAR fields, respectively. This brings the CPIV value"
+for each lobbying report’s year into the nested result. The user then
+"adds another calculated field, this time under the same relation as"
+"the existing AMOUNT field, and enters a formula that calculates the"
+inflation-adjusted amount for each report. We here have a useful
+example of an inward formula reference (to CPIV) that is not en-
+closed in an aggregate function:
+Final touches. The user edits the field labels,to make them a,
+"bit more readable, and sorts the companies by their",,lobbying to-
+tals. The underlying SQL column names can still be seen in the,,
+field selector. The user also enables a formatting option on the last,,
+column to produce a bar chart visualization. The result now looks,,
+presentable:,,
+While the LOBBYING relation that feeds into the aggregate for-
+"mula is now hidden, the user could easily make it visible again from"
+"the field selector, like she did for the previously hidden PLANTS"
+and FEEDSTOCK fields. There are also shortcuts for unhiding hid-
+"den fields referenced from the formula, or the hidden filter, indi-"
+cated by the dashed cell icons ( ).
+3.4 Architecture,
+Our visual query system allows a large class of queries to be ex-,
+"pressed by end users. As a necessary consequence, we can make",
+few assumptions about how fast results can be computed. In many,
+"cases, even though the final query desired by the user may be cheap",
+"to compute, intermediate or explorative queries generated during",
+interactive query building may be expensive.,Intermediate queries
+"may even contain user errors, such as circular dependencies in for-",
+mulas. A key requirement of our system is to avoid getting the user,
+"stuck in such states, and to keep the query building interface re-",
+sponsive and up to date even when expensive or incorrect queries,
+are encountered.,
+Our system’s basic architectural,decision is to defer all query
+processing to a relational,"database backend, generating SQL"
+queries over JDBC and retrieving a complete new result every time,
+the user modifies the query model.,This produces transactionally
+consistent results while,avoiding complicated incremental
+evaluation logic. We then provide the necessary smoke and mirrors,
+to give the user an experience,"of responsive, incremental query"
+building. The key features to this effect are as follows:,
+Visual stability. Our query semantics ensure that nested result,
+tuples from successive steps of a visual query building process re-,
+"main in the same order by default, and that the set of logical tuples",
+in a relation does not usually change as fields are hidden or shown.,
+"The presentation properties of result layouts, such as table column",
+"widths, are based on average and confidence interval values that do",
+not change once a target number of unique sample values have been,
+collected from observed query results.,Text breaking and font siz-
+ing is done to ensure that even exceptionally long string values can,
+"be displayed at a given visual width. Thus, even though an entirely",
+"new result set is generated every time the user modifies the query,",
+the visual transition from the old to the new result appears seam-,
+less. The generation of compact nested table layouts is done using,
+our previously described system for visualization of structured hi-,
+erarchical reports [5].,
+Decoupled query and result updates.,The display of a nested
+"table header, which our system uses to communicate query state,",
+need not be postponed until a query returns with actual results. Bet-,
+"ter yet, upon a change to the query model, we can immediately ren-",
+der a new table layout whose structure and indications are based on,
+"the updated query model, but whose data is taken from whichever",
+query completed most recently.,For fields not present in the old
+"result, we show a placeholder icon (",) where data values would
+"normally appear. Meanwhile,",updated SQL queries run while a
+non-modal progress indication is shown in the toolbar area.,Once
+"the query completes, the result layout is rendered again with actual",
+results. The user does not need to wait for the query to complete,
+before making new changes.,
+"For example: When unhiding a previously hidden field, the user",
+sees the result layout immediately update to accommodate the new,
+"table column, already at the correct width, with placeholder icons",
+seamlessly being replaced by data values as soon as the updated,
+query completes.,
+Interruptable queries. If the user modifies the query before the,
+"previous query has finished executing, the previous query is auto-",
+matically interrupted using the database backend’s preferred mech-,
+anism. This is crucial for letting the user escape from long-running,
+"queries, and also allows the user to perform multiple modifications",
+Figure 4:,High-level,error,handling.,A,referenced,field,was
+"deleted, so the formula can no longer be evaluated. The system",,,,,,,
+shows a warning,while,evaluating,the,rest,of the query,,nor-
+mally.,,,,,,,
+to the query without waiting for the exact result of each step to ap-
+pear. The on-screen layout remains undisturbed by the automatic
+interruption and restarting of queries in the background. Note that
+even long-running queries can be constructed with responsive re-
+sult feedback if the user can manage to temporarily filter the dataset
+down to a smaller size during query construction.
+Automatic query limiting. All generated SQL queries include
+"an automatic LIMIT clause, retrieving initially 100 tuples total for"
+each relation field. This populates the visible part of a typical result
+window. If the user scrolls far enough down to see the end of the
+"result layout, and there are more tuples left, the query is re-executed"
+using a limit twice as large as before. This allows the user to reach
+tuple N in O(N) time. Infinite scrolling appears seamless.
+High-level error handling. User-defined formulas introduce a
+"variety of possible error conditions, including circular references,"
+"broken references, type errors, and arithmetic runtime errors. Our"
+system detects and handles many such errors at a high level. In the
+"result layout, formulas with errors are highlighted in yellow, with"
+a tooltip showing specific error messages if the cursor is moved
+"to the highlighted area. For query evaluation purposes, erroneous"
+"formulas are replaced by null values, ensuring that the rest of the"
+query can still be evaluated normally. See Figure 4.
+Complete high-level error handling requires the set of functions
+and data types available in formulas to be known to the system. It
+may also require functions such as arithmetic division to be rewrit-
+"ten to return null instead of triggering runtime errors on, say, di-"
+vision by zero. SIEUFERD includes a standardized set of formula
+functions that can be compiled to the dialects of various database
+"backends, currently PostgreSQL, MySQL, and Oracle. Standard-"
+izing functions and data types allows a single unit test suite and
+online documentation set to be used for all backend dialects.
+Undo/redo. Undo/redo can be easily supported by storing suc-
+cessive states of the modified query model; a similar technique is
+"used in Tableau [55, p. 90]. Like other kinds of query modifica-"
+"tions, undo/redo benefits from several of the previously mentioned"
+"features, e.g. interruptable queries."
+4. FORMATIVE USER STUDY,,,
+We conducted a formative user study with,14,participants,(5
+"male, median age 42) from a variety of technical and professional",,,
+backgrounds; see Table 5 (appendix) for a demographic summary.,,,
+"In the first part of the study, done by users A-I, users were given",,,
+standardized tasks aimed at assessing the initial learnability of our,,,
+"tool. No prior training was given; instead, initial",,tasks were de-,
+signed to act as training tasks for subsequent,ones.,In the sec-,
+Table 3: Tasks and timings for standardized tasks used as part of the formative user study.,,Error bars show the standard error of
+the mean.,,
+"Tasks done: Tasks 1-2 were done by users A-G. Tasks 3-6 were given to users B-I, with some exceptions.",Task order:,User F did tasks 1-2 last.,Order is
+"otherwise as indicated. Hints: Training tasks included hints as necessary. In task 2a, users D and G were told that they would need to use the JOIN feature.",,,
+"ond part of the study, and as time permitted during earlier sessions,"
+users were given a chance to do more open-ended tasks on datasets
+"we provided, including some datasets from the users’ own orga-"
+"nization. Here, we gave participants demos and instructions for"
+"operating our tool, in order to gather higher-level observations than"
+would be possible during pure learning tasks.
+"From screen and voice recordings of each user study session, we"
+collected detailed observations that were later coded and catego-
+"rized, as well as timing data for standardized tasks."
+4.1 Standardized Tasks
+This section describes tasks and timings for the standardized por-
+tion of our study. We designed the standardized tasks to assess
+"the initial learnability of our system’s basic query operators, likely"
+to cover a range of common queries. Tasks designated as train-
+"ing tasks reflect the user’s first encounter with a particular feature,"
+with few upfront instructions given on how to proceed. If a user
+"got stuck during a training task, hints were given and any relevant"
+"observations noted, ensuring that the user progressed to the corre-"
+sponding follow-up task. See Table 3.
+Formulas and manual joins. Tasks 1 and 2 correspond to the
+"lobbying example from Section 3.3, in two parts. In task 1, which"
+"functions as a training task, the user is started off with a fresh query"
+"showing only the PLANTS_OS table, and is asked to find the total"
+amount spent on lobbying by each organization. A minimal schema
+"diagram is provided on paper, showing the two tables involved and"
+the fields to be matched in the join condition. The user will have to
+"discover that the operation called JOIN is needed, and then figure"
+"out how to use a formula to calculate totals. In task 2, the user is"
+asked to modify the existing query to calculate inflation-corrected
+"totals, using consumer price index values from the CPI table and"
+features that have already been used. The user now has to realize
+"that another join is needed, followed by one or two additional for-"
+"mulas. This task tests whether the user, after only a single training"
+"task, has developed enough of a mental model of how joins and for-"
+mulas work to combine the two features to arrive at a single result.
+"Task 1, the training task, took users about 16 minutes on aver-"
+"age, with 70% of the time spent after users figured out the initial"
+"manual join. Task 2, a strictly harder task using the same features"
+"as task 1, took only about 4 minutes, 4.1 times faster. The differ-"
+ence is statistically significant (p = 0.009 with two-tailed Welch’s
+t-test). Comparing only times spent on the join portion of the tasks
+"vs. times spent on the formula portion of the tasks, the difference is"
+"only statistically significant for the latter (p = 0.004). In this case,"
+users solved the second formula task 6.2 times faster than the first.
+Auto joins and filters. Tasks 3-6 involve automatic joins over
+"known foreign key relationships (auto joins), starting again from a"
+fresh query showing a single base table. Users are given a schema
+"diagram on paper, with the relevant joins marked, and told that be-"
+cause the system already knows about the relationships between
+"the tables, it will not be necessary to use the manual JOIN ac-"
+tion. Tasks 3 and 4 ask the user to produce a report-style query
+"similar to the course catalog shown in Figure 2, first adding a ta-"
+"ble related to the base table via a single join (e.g. READINGS),"
+and then adding a table related to the base table via multiple joins
+"(SECTIONS, INSTRUCTORS_SECTIONS, INSTRUCTORS). In task 5,"
+the user is asked to filter the result on a field in a table that has not
+"yet been joined into the current query, specifically to “show only"
+"courses offered in Spring 06-07”, where semester names are stored"
+in a separate table. This allows us to assess the user’s expectations
+"wrt. interactions between nested joins and filters. In task 6, the"
+"user is started off with a fresh new query, starting from a different"
+base table (INSTRUCTORS). Having previously produced a course
+"catalog showing a list of instructors for each course, the user is"
+now asked to show a list of courses taught by each instructor. This
+"repeats task 4, but from the opposite end of the schema."
+4.2 Observations
+We now discuss a specific observations gathered from both the
+standardized and the open-ended portions of the study.
+"Manual joins. The manual join dialog, quoting user C, was “ac-"
+tually very easy to use”; most users moved through it quickly and
+"correctly on their first attempt. Still, users preferred auto joins once"
+"introduced to them, see below. Users CEJ wanted to visually verify"
+"that the equijoin condition was satisfied, and were briefly confused"
+because our system automatically hid the redundant constrained
+field on the nested side of the join. Users performing task 2 had
+no problems with the join portion of the task; only users DG re-
+"quired a hint that they would need to use the JOIN feature again,"
+while the rest realized this on their own.
+"Formulas. When first attempting to perform a sum aggregation,"
+"users BCDE started by looking for an explicit sum action, as would"
+be found in Excel’s toolbar. Users CGK looked for an Excel-style
+formula builder. Having eventually realized that they needed to in-
+"sert a calculated field and enter a formula themselves, users DEFK"
+"had initial trouble learning how to physically enter the formula, try-"
+"ing for example to enter the formula in an already-existing column,"
+or in the column header.
+"In Excel, sums can be produced either using formulas or pivot"
+"tables. The two interfaces are largely separate, with users often pre-"
+ferring one or the other. Our system follows the formula approach.
+Users CH commented that they thought of pivot tables when first
+"trying to compute a sum, while users BEI thought of pivot tables"
+during other tasks.
+A significant,difference,between,spreadsheet,formulas,and
+"SIEUFERD formulas is that the latter, like SQL queries, reference",,,,,
+entire columns of,values rather,than,an explicit,range of cells.,
+Users ABCFH expected,this,on their,first attempts,to insert,a
+reference in a sum formula. Users DEGN expected the spreadsheet,,,,,
+"model, initially",attempting,to select,a range of cells.,A related,
+challenge was to understand the level at which a calculated field,,,,,
+should be inserted in order for sums to be grouped in the right way.,,,,,
+The fact that the,position of,a formula,in the relation,hierarchy,
+determines the,grouping of,aggregate,functions,is a further,
+"deviation from the spreadsheet model, while the lack of an explicit",,,,,
+GROUP BY clause may be confusing to SQL users.,,,,User H tried to,
+specify the set of columns to group by in the aggregate function,,,,,
+"itself, as in the formula =SUM([NAME],[AMOUNT]), while user F",,,,,
+tried to hide every field other than the one to be summed.,,,,User G,
+attempted to invoke,the HIDE,DUPLICATE,ROWS,action. Users,
+CFGH also tried placing the calculated field next to the value to be,,,,,
+summed rather than at the parent,,level.,The latter has the trivial,,
+effect of producing,sums each,over,only a single,input value.,
+"User G, who spent 20 minutes on Task 2b, thought aloud:",,,,,
+"“Wouldn’t it be fantastic if there was a way simply to operate at",,,,,
+that group level rather than these individual entries?,,,,[After creat-,
+"ing a new formula at the correct level:] Is it doing it that way? Oh,",,,,,
+that’s perfect. ... That is meeting my heart’s desire. But I wouldn’t,,,,,
+have the cue for that.”,,,,,
+"Despite initial difficulty with formulas in training task 1b, users",,,,,
+applied them quickly and accurately in follow-up task 2b.,,,,This is,
+despite the follow-up,task requiring,more,steps (a,"join, a scalar",
+"function, and an aggregate function).",,,This suggests users are able,,
+to apply formulas,effectively,after first,learning,"them, but",that
+there is significant potential,,for improved learnability.,,We agree,
+"with users AM, who suggested adding an explicit sum action like",,,,,
+that of Excel. This,feature,would automatically,generate,a,sum
+"formula above the nearest one-to-many relationship, which would",,,,,
+then serve as an example to the user to learn from.,,,,,
+"After initial learning, users appreciated the behavior of formulas.",,,,,
+Users CEGK noted explicitly that the behavior of aggregate func-,,,,,
+"tions, including",grouping and,subtotaling,"behavior,",made sense.,
+Users ILK also commented that the all-column nature of formula,,,,,
+references made sense and was an advantage over Excel’s range-,,,,,
+style references. User K noted:,,,,,
+"“I just feel like I have a truer sense of what I’m adding up, or",,,,,
+what’s being considered,in this,format vs.,the traditional Excel.,,
+Because [in Excel],you could be pulling,,"from the wrong places,",,
+you can be getting,"weird numbers,",you,could accidentally,hit,a
+field that now ends up in your calculation.”,,,,,
+"Field selection; auto joins. Users performing tasks 3-6, or sim-",,,,,
+"ilar tasks on other datasets, were generally able to use the auto join",,,,,
+"feature without trouble. The exception was user N, who had a hard",,,,,
+time because of,the lack of,visible indications,in,the result,area
+that more fields,could be shown.,User,G also noted,this issue.,
+"Users IKN specifically looked for an action named “Unhide”, like",,,,,
+in Excel. This suggests that our user interface needs a more visible,,,,,
+affordance for accessing hidden fields.,,,We expect hidden fields to,,
+"be far more common in SIEUFERD than in Excel, since a typical",,,,,
+database query projects only a small subset of columns available,,,,,
+from instantiated database tables.,,The design of an improved un-,,,
+hide affordance should take this into account.,,,,,
+Users EGHJKL reacted particularly enthusiastically to the auto,,,,,
+"join feature, using words such as “fantastic”, “wow”, “damn”, and",,,,,
+"“amazing”. User E noted:",,,,,
+"“Yes, the manual","join made sense,",,but that was a very simple,,
+situation. I wouldn’t,want,to have done,the joins,on this [more,
+complicated database].,The,fact,that,I,was,just,able,to,double-
+"click and expand it out, that meant, it dumbed the task down to the",,,,,,,,,
+level that I was happy performing it.”,,,,,,,,,
+Field selection; efficiency.,,One,important,,,problem,,was,that
+of poor defaults for which,fields,,should,,be,visible,immediately,,
+after a new relation is,introduced,,into,,the,current,query.,,For
+"manual joins, all (non-redundant) fields in the foreign table would",,,,,,,,,
+be visible in the nested,relation;,,this,made,,it hard,to,grasp,the
+overall structure of the query without first going through the step,,,,,,,,,
+of hiding a number of,irrelevant,,"columns,",,usually,,necessitating,,
+horizontal scrolling. For,auto,"joins,",,in,"contrast,",,only,,primary
+key fields were displayed,by,default.,,,This,also,turned,,out to
+"be a poor choice, because",primary,,key,,fields,often,,consist,of
+purely technical identifiers,that,neither,,,help,the,user,identify,an
+entity in the database nor,its,type.,An,,example,,would,,be the
+"relation EMPLOYEES(ID, FIRST_NAME, LAST_NAME),",,,,,,,,,where
+the database identifies,each,tuple,by,the,technical,,primary,,key
+"ID (maybe a number, like “16”) but where the user would rather",,,,,,,,,
+like to see the first and last names of each employee—despite the,,,,,,,,,
+theoretical possibility that,two,employees,,,might,,have,the,same
+name. Showing only primary key fields by default made auto joins,,,,,,,,,
+"harder to work with than necessary, requiring users to click four or",,,,,,,,,
+five times in the field selector in order to introduce a new relation,,,,,,,,,
+and show a reasonable set of fields from that relation.,,,,,,,,,
+"Post-study, in response to the problem of poor field visibility de-",,,,,,,,,
+"faults, we modified our system to allow a subset of columns from",,,,,,,,,
+each database table to be marked as human-readable heading fields.,,,,,,,,,
+These are the fields that will initially be visible whenever the table,,,,,,,,,
+in question is introduced into a query.,,,"As suggested by users MN,",,,,,,
+various heuristics can be used to configure,,,,,this setting automati-,,,,
+"cally. Several proposed attribute ranking algorithms [19, 44] could",,,,,,,,,
+"be suitable. For now, we simply look for column names containing",,,,,,,,,
+the words “title” or “name”. Summarization may even be useful in,,,,,,,,,
+"the vertical direction, with several techniques available [14, 51].",,,,,,,,,
+"For databases containing a large number of fields per table, nav-",,,,,,,,,
+igating the field selector became cumbersome.,,,,,,This was noted by,,,
+"users EJM, who got a chance to try our tool on a real data ware-",,,,,,,,,
+house schema containing 22 interconnected tables with up to 40-73,,,,,,,,,
+fields each (19 on average).,,User L also pointed this out for the,,,,,,,
+smaller course catalog schema. User E explains:,,,,,,,,,
+"“You’ve got massive lists, and they’re not ordered alphabetically.",,,,,,,,,
+"You’ve got table names, and field names, and sometimes they are",,,,,,,,,
+not very English.”,,,,,,,,,
+One part of the problem is that users spent a significant amount,,,,,,,,,
+of time scanning up and down looking for specific field names.,,,,,,,,,A
+"search box in the field selector, like that of the filter popup, would",,,,,,,,,
+"help mitigate this, as suggested by users JM. A separate problem is",,,,,,,,,
+the fact that the multitude of primitive fields in the field selector ob-,,,,,,,,,
+"scures the overall structure of relation fields in the query, including",,,,,,,,,
+those accessible via auto joins. Users JM also commented that they,,,,,,,,,
+would have liked to see a schema diagram of some sort on-screen.,,,,,,,,,
+"In the future, we may consider adding a second kind of field se-",,,,,,,,,
+lector that shows relation fields only in a tree representation that is,,,,,,,,,
+fully expanded by default; this would provide a compact way to see,,,,,,,,,
+the entire foreign key structure of the database schema as reachable,,,,,,,,,
+from the current query.,,,,,,,,,
+4.3 General Sentiment,,,,,,,,,
+"At the end of the session, users CDHIJK expressed that they had",,,,,,,,,
+"a high degree of understanding of the tool. User K, who had 2-300",,,,,,,,,
+"hours of experience with SQL from their previous job, noted:",,,,,,,,,
+"“It’s probably fair to say that I am as comfortable with this as I",,,,,,,,,
+"am with SQL right now, just because I haven’t used SQL that often",,,,,,,,,
+"in the recent past. Given 2 hours, I think I could make an accurate"
+"report in this, allowing for mistakes, and fixing my mistakes. Take"
+"that same period in SQL, and I think I would still be at sea.”"
+Users EJKL rated SIEUFERD favorably compared to existing
+commercial tools they are familiar with.
+User J: “It took me a lot longer to get anything useful out of
+Access after I first started using that. So that’s huge. This is more
+"intuitive than either Excel or Access. I think, for the novice that"
+"doesn’t know what they’re doing, this can be very powerful.”"
+"Table 4: Mean SUS survey results for the controlled study, us-"
+ing various standard scales. Higher scores are better. Error
+bars show the standard error of the mean.
+5. CONTROLLED USER STUDY
+"In a second user study, we aimed to get a more precise idea"
+of how users might rate our system compared to an existing in-
+dustry tool. We chose the “Query Design” facility of Microsoft
+Access 2016 as a control. Being part of the Office Professional
+"suite, it is one of the most common visual query tools available."
+It is also a good example of a query builder that uses a diagram-
+based approach rather than direct manipulation of results (see Re-
+lated Work).
+The controlled study was a within-subjects counterbalanced
+"design, measuring usability using the System Usability Scale"
+"(SUS) [8]. Tullis and Stetson [56] recommend sample sizes"
+of 12-14 users to get reasonably representative results from
+within-subjects studies based on the SUS survey; we collected data
+"from 14 users (5 male, median age 36). See Table 5 (appendix) for"
+a demographic summary. Only users OTÆ had prior experience
+with the Access query designer. We met with each user for a single
+"study session, structured as follows:"
+1. Complete demographic/background survey.
+"2. Briefly discuss the sample database that will be used for tasks,"
+consulting a schema diagram on paper. The paper diagram re-
+mains available to the user during the tasks that follow.
+3. Work through some standardized tasks to evaluate Tool 1. Stop
+after about 20 minutes. The first tool is SIEUFERD for half of
+"the users and Microsoft Access for the other half, randomized."
+4. Complete SUS survey for Tool 1.
+"5. Work through the same tasks in Tool 2, under otherwise identi-"
+cal conditions. Stop after about 20 minutes.
+6. Complete SUS survey for Tool 2.
+7. Discussion and feedback.
+"The standardized tasks, all done on the 7-table “Northwind” ex-"
+ample database that shipped with older versions of Microsoft Ac-
+"cess, are intended to be realistic examples of queries that a user"
+"might want to run on such a database. They incorporate joins, fil-"
+"ters, sorting, scalar calculations and aggregates, but are limited to"
+queries that can be expressed in Microsoft Access’ visual query
+designer; this excludes queries requiring nested results as well as
+multi-block queries (e.g. aggregates used as inputs to other aggre-
+gates). The exact tasks are listed in Table 6 (appendix). In both
+"tools, we configured foreign key relationships upfront so that the"
+user would not have to manually specify exact join constraints be-
+"tween tables. The first five tasks are guided training tasks, intended"
+"to expose the user to all features, in both tools, that are needed to"
+complete the subsequent unguided tasks. The guided tasks tended
+to take about half of the 20 minutes that users had available to try
+"each tool. After the guided tasks, users were asked to try solv-"
+ing four unguided tasks without help. Since the main purpose of
+tasks was to give the user enough of an impression of each sys-
+"tem to complete the subsequent SUS survey, we gave hints during"
+unguided tasks whenever users reported being stuck.
+The results of the study are shown in Table 4. The raw SUS score
+is reported along with separate Learnability and Usability scores
+"as defined by Lewis and Sauro [39], as well as a percentile rating"
+among 30 other studies in the B2B (Business Software) category as
+detailed by Sauro [49]. The difference in raw SUS scores between
+Access and SIEUFERD is statistically significant (p = 0.0019 with
+two-tailed paired t-test).
+"Interpreting the results, with the caveat that these observations"
+"are based on only 20-minute interactions with each tool, we see that"
+SIEUFERD significantly outperformed Microsoft Access in terms
+of usability. Most of the difference can be attributed to the poor
+"performance of Microsoft Access, considering its low ranking on"
+the percentile scale; SIEUFERD simply achieved an average rat-
+ing compared to other business software. This supports the orig-
+"inal hypothesis of our paper: database querying is hard, but can"
+be made significantly easier using a direct manipulation interface.
+SIEUFERD still has significant potential for improved usability. In
+"conversations with users, the main requests for future design im-"
+provements were (1) the ability to get an overview of the complete
+database schema from within the query interface and (2) reduced
+dependency on formulas during query building. This is consistent
+with observations from the formative study.
+6. CONCLUSION
+SIEUFERD is a visual query system that achieves SQL-like ex-
+pressiveness from a pure direct manipulation interface. Whereas
+previous direct manipulation systems either sacrifice expressive-
+"ness or hide the actual query from the user, SIEUFERD integrates"
+"the query and its result into a single interactive visualization, using"
+spreadsheet concepts like filters and formulas to expose the com-
+plete state of the current query. Compared with the diagram-based
+"query designer of Microsoft Access 2016, users greatly preferred"
+"our direct manipulation interface, with the latter scoring 46 per-"
+centiles higher on a SUS-based percentile scale. For data-minded
+"people of all professions, we believe SIEUFERD’s interaction style"
+holds promise as an alternative to hand-coded SQL.
+7. FUTURE WORK
+"In the current query interface, some queries are expressible yet"
+"awkward to construct; examples include range filters, grouping"
+"on custom attributes, and UNION-type queries. Here, the interface"
+could be improved without significant changes to the underlying
+query model. See for example the proposed syntactic sugar for
+union queries in Figure 7 (appendix). Other future work will
+focus on expanding the ways in which results can be displayed;
+our query model is well-suited for the retrieval of data for
+"visualizations such as dashboards, crosstabs, calendars, forms, and"
+"reports. Already supported are crosstabs, see Figure 5 (appendix),"
+"and form/report layouts [5]. Finally, we hope to incorporate"
+editing of data; this will allow SIEUFERD to act as a complete
+schema-independent end user front-end for relational databases.
