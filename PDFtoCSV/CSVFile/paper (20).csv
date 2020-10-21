@@ -1,0 +1,1044 @@
+Predicting Query Execution Time:
+Are Optimizer Cost Models Really Unusable?
+Abstract— Predicting query execution,time,is,useful,in,many
+"database management issues including admission control, query",,,,,
+"scheduling, progress monitoring, and system sizing. Recently the",,,,,
+research community has been exploring,the,use,of statistical,,
+machine learning approaches to build,predictive,,models,,for
+this task. An implicit assumption behind,this,,work,is,that
+the cost models used by query optimizers,are,,insufficient,,for
+query execution time prediction. In this paper we challenge this,,,,,
+assumption and show while the simple approach,,,of scaling,,the
+"optimizer’s estimated cost indeed fails,",a properly,,calibrated,,
+optimizer cost model is surprisingly effective.,,,"However,",,even
+a well-tuned optimizer cost model will,fail in,,the presence,,of
+errors in cardinality estimates. Accordingly,,we,investigate,,the
+novel idea of spending extra resources to refine estimates for the,,,,,
+query plan after it has been chosen by the optimizer but before,,,,,
+execution. In our experiments we find that a well calibrated query,,,,,
+optimizer model along with cardinality,estimation,,refinement,,
+provides a low overhead way to provide,estimates,,,that,are
+always competitive and often much better than the best reported,,,,,
+numbers from the machine learning approaches.,,,,,
+which treat the,database,system as,,a,black box,,and,try to
+learn a query,running time,prediction,,,model.,,This,move
+toward black box,machine,learning,,techniques,,is,implicitly,
+and sometimes,explicitly,motivated,,by,a belief,,that,query
+optimizers’ cost estimations are not good enough for run time,,,,,,,,
+"prediction. For example, in [11], the authors found that using",,,,,,,,
+linear regression to map the cost from Neoview’s commercial,,,,,,,,
+query optimizer,to the actual,running,,,was not effective,,,(see
+"Figure 17 of [11]). In [4], the same approach was used to map",,,,,,,,
+"PostgreSQL’s estimate to the actual execution time, and similar",,,,,,,,
+disappointing results were obtained (see Figure 5 of [4]).,,,,,,,,
+It is clear from this previous work that post-processing the,,,,,,,,
+optimizer cost estimate,is,not effective.,,,"However,",,we,argue
+in this paper that this does not imply that optimizer estimates,,,,,,,,
+"are not useful — to the contrary, our experiments show that if",,,,,,,,
+the optimizer’s internal cost model is tuned before making the,,,,,,,,
+"estimate, the optimizer’s",estimates,are,,,competitive,,with,and
+often superior to those obtained by more complex approaches.,,,,,,,,
+"In more detail, for specificity consider the cost model used by",,,,,,,,
+the PostgreSQL query optimizer:,,,,,,,,
+Example 1 (PostgreSQL’s Cost Models):,,,,,PostgreSQL’s op-,,,
+timizer uses a vector,of five,parameters,,,(referred,,to as,cost
+units) in its cost,"model: c = (cs, cr, ct, ci, c )To",,,,,",",defined,as
+follows:,,,,,,,,
+"",,I. INTRODUCTION,,,
+Predicting,query,execution time has,always,been,desir-
+able if somewhat elusive capability for database management,,,,,
+systems. This,capability,has received a,flurry,of attention,
+"recently, perhaps because it has become increasingly important",,,,,
+in the context,of offering,databases as,a service,(DaaS).,A
+DaaS provider,has,to manage infrastructure,costs,as,well
+as honor service,level,"agreements (SLAs),",and many,system,
+management,decisions,can benefit from,prediction,of,query
+"execution time,",including:,,,,
+"• Admission",Control:,Knowing the execution,,time,of an
+incoming,query,can enable cost-based,decisions,,on ad-
+"mission control [26],",,[28].,,,
+"• Query Scheduling: Knowing the query execution time is",,,,,
+"crucial in deadline and latency aware scheduling [8], [13].",,,,,
+"• Progress Monitoring: Knowing the execution time of an",,,,,
+incoming,query,can help avoid “rogue,queries”,that,are
+submitted in error and take an unreasonably long time to,,,,,
+execute [22].,,,,,
+"• System Sizing: Knowing query execution time as a func-",,,,,
+tion of hardware resources can help in system sizing [27].,,,,,
+Recent work,on predicting,query execution,time,"[4],","[11],"
+"[26], [28] has focused on various machine learning techniques,",,,,,
+"1) cs: seq page cost,",the,I/O,cost to,,sequentially,access a
+page.,,,,,,
+"2) cr: random page cost,",,the,I/O cost,,to randomly,access a
+page.,,,,,,
+"3) ct: cpu tuple cost,",the CPU cost to process a tuple.,,,,,
+"4) ci: cpu index tuple cost,",,the,CPU cost,,to process,a tuple
+via index access.,,,,,,
+"5) co: cpu operator cost,",,the CPU cost,,,to perform an opera-,
+tion such as hash or aggregation.,,,,,,
+The cost CO of an operator O in a query plan is then computed,,,,,,
+"by a linear combination of cs, cr, ct, ci, and co:",,,,,,
+C = nTO c = ns · cs + nr · cr + nt · ct + ni · ci + no · co.,,,,,,(1)
+"The values n = (ns, n","r, nt, ni, no)",,There represent the number,,,
+"of pages sequentially scanned, the number of pages randomly",,,,,,
+"accessed, and so forth,",during,,the execution,,of the,operator
+O. The total estimated,,cost,of,a,query plan,is,then simply,
+the sum of the,costs of,the,individual,,operators,,in the query,
+plan.,,,,,,,,
+The accuracy,of CO,hence,depends,,on both,,the accuracy,
+of the c’s and the n’s.,,In,"PostgreSQL,",,"by default, cs = 1.0,",,,
+"cr = 4.0, ct = 0.01, ci = 0.005,",,,,,and co = 0.0025.,,,The
+cost CO in Equation (1) is thus reported in units of sequential,,,,,,,,
+page I/O cost (since cs = 1.0). Note that these cost units were,,,,,,,,
+somewhat arbitrarily,set,by,the,optimizer,designers,,with,no
+knowledge of the system on which the query is actually being,,,,,,,,
+run. Using linear,regression,,to,map,an estimate,,so obtained,
+will only work if,the ratios among these units,,,,,"is correct, and",,
+"not surprisingly,",these default,,ratios were far from correct on,,,,,
+our systems.,,,,,,,,
+"Of course, the",accuracy,,of CO,,also depends,on,the quan-,
+"tities ns, nr, nt, ni, and no. Determining accurate values for",,,,,,,,
+"these quantities is not a matter of calibration — rather, it is a",,,,,,,,
+matter of good cardinality estimation in the optimizer. Hence,,,,,,,,
+one could say that we have reduced the problem of query time,,,,,,,,
+prediction to the,previously,,unsolved,,problem,of,cardinality,
+"estimation. In a sense this is true, but further reflection reveals",,,,,,,,
+that we are solving a subtly but significantly different problem.,,,,,,,,
+In their traditional,"role,",,cardinality,,estimates,,are required,
+for every cardinality,encountered,,,,as the optimizer,,searches,
+thousands or tens,of,thousands,,,of alternative,,plans.,This
+of course means,that,the,estimation,,process,itself,must,be
+"extremely efficient,",or,long,optimization,,times,,will result.,
+But our problem is different: we must determine cardinalities,,,,,,,,
+for the single,plan that,,the optimizer,,has already,,chosen.,
+The fact that we,are,working,,on,a single plan,,means,we
+can afford to spend,some,,extra,time,to improve,,the original,
+optimizer estimates.,"Specifically,",,,,in this paper,,we consider,
+using sampling-based,,approaches,,,to refine these,,estimates.,
+We believe that,although sampling-based approaches may be,,,,,,,
+too expensive,to be used,,while,,searching for,,good query,
+"plans, they can be practically used for correcting the erroneous",,,,,,,,
+cardinality estimates in a ready-to-be-executed query plan.,,,,,,,,
+Our experiments,show,,that,if,we correctly,,calibrate,the
+constants in the,optimizer’s,,cost,"model,",it yields,,good query,
+execution time,estimates,,when,the,cardinality,estimates,,are
+"good (as is the case in, for example, the uniformly distributed",,,,,,,,
+data set variants,of the,,TPC-H,,benchmark.),"Furthermore,",,
+"“expensive” techniques",,such,as,sampling,can,be,effectively,
+used to improve the cardinality estimates for the chosen plan.,,,,,,,,
+Putting the two together yields cost estimates that are as good,,,,,,,,
+or better than those obtained by previously studied “black box”,,,,,,,,
+machine learning approaches.,,,,,,,,
+The rest of the paper is organized as follows. We first give an,,,,,,,,
+overview of our cost-model based approach in Section II. We,,,,,,,,
+"then discuss the two error-correction steps, i.e., calibrating cost",,,,,,,,
+"units and cardinality estimates, in Sections III and IV, respec-",,,,,,,,
+tively. We further conduct extensive experimental evaluations,,,,,,,,
+and present our,results,in,Section,,V. We summarize,,related,
+work in Section VI and conclude the paper in Section VII.,,,,,,,,
+II. OUR FRAMEWORK,
+Example 1 demonstrates that errors in c and n might prevent,
+us from leveraging CO = nTc to predict query execution time.,
+Our basic idea is simply to correct these errors in a principled,
+fashion.,
+"As illustrated in Figure 1, our framework",consists of two
+"error-correction stages, namely, an offline",profiling stage to
+"calibrate the c, and an online sampling stage to refine the n:",
+"• Offline profiling to calibrate c:",
+The errors in c reflect an inaccurate,view of the un-
+derlying hardware and database system.,"To correct this,"
+instead of using the default values assigned by the query,
+"optimizer, we calibrate them by running",a family of
+profiling queries on the system on which the queries will,
+"be run. Note that this profiling stage is offline. Moreover,",
+it only needs to be run once as long,as the underlying
+hardware and software configuration does not change.,
+We describe the details of the profiling,stage in Sec-
+tion III.,
+"• Online sampling to refine n:",
+The errors in n reflect errors in cardinality,estimation.
+Once the query plan has been chosen,by the query
+"optimizer, we re-estimate cardinalities, if necessary, using",
+a sampling-based approach. Although,using sampling
+"for cardinality estimation is well-known, current",DBMS
+"optimizers exclude sampling from their implementations,",
+perhaps due to the additional overhead,sampling incurs.
+"However, since we only have to estimate",cardinalities
+"for one plan, the overhead of sampling",is affordable in
+practice. We describe the details of the sampling stage in,
+Section IV. We note that the important idea is that there,
+is an opportunity to spend extra time refining cardinality,
+estimates once a query plan has been,chosen; sampling
+is one example of how that could be,"done, and finding"
+other techniques is an interesting area for future work.,
+The advantages of our framework for,predicting query
+execution time include the following:,
+"• Lightweight: The profiling step is fast",and so can be
+conducted in a new hardware environment,quickly. The
+"sampling step, as will be shown, introduces small (usually",
+"< 10%) and tunable overhead.",
+"•",No training data needed: Unlike machine-learning-based
+"","approaches, which heavily rely on training data repre-"
+"","sentative of the actual workload, our framework does not"
+"",rely on such a training data set and so can handle ad hoc
+"",queries well.
+"•",White-box approach: Instead of sophisticated statistical
+"","models (e.g., SVM and KCCA), which are often difficult"
+"","to understand for non-experts, our framework adopts an"
+"",intuitive white-box approach that fits naturally into the
+"",existing paradigm of query optimization and evaluation
+"",in relational database systems.
+"tuples or the sum of both, depending on the specific operator)."
+"Here, for Q1, the cost model will only charge one ct per tuple,"
+since the CPU merely reads in the tuple without any further
+"processing. For Q2, in addition to charging one ct per tuple"
+"for reading it, the cost model will also charge one co per tuple"
+"for doing the aggregation (i.e., COUNT), and hence the total"
+CPU cost is estimated to be ntct + noco. Note that for this
+"particular query Q2, we coincidentally have nt = no = |R|."
+"In general, nt and no could be different. For example, for the"
+"sort operator, nt is the number of input tuples, and no is the"
+"number of comparisons made. In this case, no = nt log nt."
+Now suppose that Tt is the time for the CPU to process
+"one tuple, and To is the time for one CPU operation. We then"
+have
+"t1 = Tt · nt,"
+t2 = Tt · nt + To · no.
+"",,III. CALIBRATING COST UNITS,
+In,this,section we consider the task of calibrating,the
+cost,units,in the optimizer cost model to match the,true
+performance of the hardware and software on which the query,,,
+will,be run.,It turns out that closely related problems have,
+been studied,,"in the context of heterogeneous DBMS [9], DB",
+resource,virtualization,"[24], and storage type selection [29].",
+"Previous work, however, has either focused on cost models for",,,
+"particular operators (e.g., selections and 2-way joins in [9]), or",,,
+on a,subset,of cost units dedicated to a particular subsystem,
+of the,DBMS,"(e.g., CPU in [24] and I/O in [29]). We build",
+on this previous work following their technique of using a set,,,
+of calibration,,queries. The basic idea is that for each,cost
+unit,to be,"calibrated, one designs some particular query",that
+"isolates this parameter from the others. In practice, this is not",,,
+completely,,straightforward in that not every cost unit can be,
+isolated in a single query.,,,
+A. Guiding Principles,,,
+"Ideally,",,we wish to have one calibration query for each,
+"parameter. However, this is not always possible. For instance,",,,
+there,is no,SQL query which involves the cpu operator cost,
+but not the cpu tuple cost. A natural generalization is then to,,,
+"use k calibration queries for k parameters, as was done in [24].",,,
+The following example illustrates this,,idea.,
+Example 2 (Calibration Query):,,Suppose R is some rela-,
+tion that is buffer pool resident. We can use the following two,,,
+calibration queries to obtain the parameters cpu tuple cost and,,,
+cpu operator cost:,,,
+"•",Q1: SELECT * FROM R,,
+"•",Q2: SELECT COUNT(*) FROM R,,
+Since R,,"is memory resident, there is no I/O cost for",Q1
+or Q2.,Q1,"only involves the parameter cpu tuple cost, while",
+Q2 involves,,both cpu tuple cost and cpu operator cost (due,
+to the COUNT aggregation). Suppose the execution time of Q1,,,
+and Q2 are t1,,"and t2, respectively. Since the overhead due to",
+"cpu tuple cost for Q1 and Q2 are the same, we can then infer",,,
+cpu operator cost with respect,,to the execution time t2 − t1.,
+"Specifically,",,"let the number of tuples processed be nt,",and
+the number,,"of CPU operations be no, as in Equation (1).",In
+"PostgreSQL’s cost model, a CPU operation means things like",,,
+adding,two,"integers, hashing an attribute, and so on. no",is
+thus,the number,of such operations performed. On the other,
+"hand, nt",is the number of input,tuples (sometimes the output,
+Solving these,two,equations gives us,the,values,of Tt,,and
+"To, in turn determines ct",,and co in Equation (1).,,,,,
+"In general, with",a,set of calibration,"queries Q,",,we,,first
+estimate ni for,each qi ∈ Q,and then measure,,its,execution,,
+time ti. With N = (n,,"1, · · · ,nk) Tand t = (t1, · · · , t )Tk",,,,", we",
+can solve the following equation for c:,,,,,,,
+"",,"Nc = t,",,,,,
+which is just a system of k equations.,,,,,,,
+"The next question is then, given a set of optimizer cost units",,,,,,,
+"c, how to design a set of calibration queries Q. Our goal is to",,,,,,,
+design a set with the following properties:,,,,,,,
+"• Completeness: Each cost unit",,in c should be covered by,,,,,
+at least one calibration query q ∈ Q.,,,,,,,
+"• Conciseness:",Each,query q ∈ Q should,,be necessary,,,to
+"guarantee completeness. In other words, any subset Q′ ⊂",,,,,,,
+Q is not complete.,,,,,,,
+"• Simplicity:",Each,query q ∈ Q should,,be as,simple,,as
+possible when Q,,is both complete and concise.,,,,,
+"Clearly “completeness” is mandatory, while the others are just",,,,,,,
+"“desirable”. Since",the,possible number,of SQL,queries,on,,a
+given database is,"infinite, we restrict our attention",,,,to concise,,
+"complete subsets. However, there is still infinite number of sets",,,,,,,
+Q that are both,complete,and concise.,Simpler,queries,,,are
+preferred over more,,"complex, because",it is,easier,to obtain,,
+correct values for,the,cardinalities such,as nt,and no,,,in
+Example 2 (getting,,exact values for such,,cardinalities,,,may
+be difficult for operators embedded in deep query trees).,,,,,,,
+B. Implementation,,,,,,,
+We designed,the 5,calibration queries,for,the PostgreSQL,,,
+optimizer as follows. We chose queries qi for Q by introducing,,,,,,,
+individual cost units one by one:,,,,,,,
+"• cpu tuple cost: We use query q1:",,,,,,,
+SELECT * FROM R,,,,,,,
+as the calibration query. The relation R is first paged into,,,,,,,
+"the buffer pool, and hence there is no I/O cost involved:",,,,,,,
+"n1 = (0, 0, nt1, 0, 0)",,T.,,,,,
+"•",cpu operator cost: We use query q2:,
+"",SELECT COUNT(*) FROM R,
+"",as another calibration query. We then use,the method
+"","illustrated in Example 2. Again, R is memory",resident:
+"","n2 = (0, 0, nt2, 0, no2) Tand nt2 = nt1.",
+"•",cpu index tuple cost: We use query q3:,
+"",SELECT * FROM R WHERE R.A < a,
+"",where R.A has a clustered index and we,pick a so
+"",that the the optimizer will choose an index,scan. This
+"","query involves cpu tuple cost, cpu index tuple cost,",and
+"","cpu operator cost. Once again, R is memory",resident:
+"","n3 = (0, 0, nt3, ni3, no3) T.",
+"•",seq page cost: We use query q4:,
+"",SELECT * FROM R,
+"",as the calibration query. This query will,be executed
+"","in a sequential scan, and the cost model only",involves
+"",overhead in terms of seq page cost and cpu tuple cost:,
+"","n4 = (ns4, 0, nt4, 0, 0)T.",
+"•",rand page cost: We use query q5:,
+"",SELECT * FROM R where R.B < b,
+"",as the calibration query. Here R.B is some,attribute
+"",of the relation R on which an unclustered,index is
+"","built. The values of B are uniformly generated,",and we
+"",pick b so that the optimizer chooses an,index scan.
+"","Ideally, we would like that the qualified",tuples were
+"",completely randomly distributed so that we could isolate,
+"","the parameter rand page cost. However, in practice, pure",
+"","random access is difficult to achieve, since the execution",
+"",subsystem can first determine the pages that,need to be
+"",accessed based on the qualified tuples before,it actually
+"","accesses the pages. In this sense, local sequential accesses",
+"","are unavoidable, and the query plan involves",more or
+"","less overhead in terms of seq page cost. In fact, a typical",
+"",query plan of this query will contain all the five param-,
+"","eters: n 5 = (ns5, nr5, nt5, ni5, no5) T.",
+"",IV. REFINING CARDINALITY ESTIMATION
+We,discuss how to refine n in this section. To make
+this paper,"self-contained, we first discuss how the optimizer"
+obtains n for a given query plan. We then propose a sampling-,
+based method of refining the cardinality estimates (and hence,
+the n) of the final plan chosen by the optimizer. We describe,
+the details of the algorithm and our current,implementation.
+A. Optimizer’s Estimation of n,
+The optimizer estimates query execution cost by aggregating,
+the cost,estimates of the operators in the query plan. To
+distinguish,"blocking and non-blocking operators, this cost"
+model,comprises of the start cost and total cost of each
+operator:,
+"• start cost (sc) is the cost before the operator can produce",
+its first output,tuple;
+"• total cost",(tc) is the cost after the operator generates all
+of,its output tuples.
+Note that the cost of an operator includes the cost of its child,
+operators.,
+"As an example, we show how n is derived for the in-memory",
+sort and,nested-loop join operators in PostgreSQL. These
+operators,are representative of blocking and non-blocking
+"operators,","respectively. In the following illustration, run cost"
+"(rc for","short) is defined as rc = tc − sc, and Nt is the"
+"(estimated)",number of input tuples for the operator. Observe
+that the costs are given as linear combinations of c.,
+Example 3 (In-Memory Sort):,Quick sort is used for tables
+that optimizer,estimates can be completely held in memory.
+The values sc and rc are estimated as follows:,
+"","sc = 2 · co ·Nt · logNt + tc of child,"
+"",rc = ct ·Nt.
+Example 4 (Nested-Loop Join): The nested-loop join oper-
+ator joins two input relations. The sc and rc are estimated as
+follows:
+"sc = sc of outer child + sc of inner child,"
+rc = c ·No t t ·Nt +Nt · rc of inner child.i o
+Here Not and Nt iare the number of input tuples from the outer
+"and inner child operator, respectively."
+Notice that the main uncertainty in n comes from the
+estimated input cardinality Nt in both of these examples. In
+"general, the logic flow in the cost models of PostgreSQL"
+optimizer can be summarized with five steps:
+1) estimate the input/output cardinality;
+2) compute the CPU cost based on cardinality estimates;
+3) estimate the number of accessed pages according to the
+cardinality estimates;
+4) compute the I/O cost based on estimates of accessed pages;
+5) compute the total cost as the sum of CPU and I/O cost.
+"Hence, our main task in calibrating n is to refine the in-"
+put/output cardinalities for each operator.
+Notice that ni can,be,estimated,relatively,accurately,due,,to
+simplicity of qi.,"Furthermore,",,the,5 equations,generated,,by
+"the 5 queries are independent, which guarantees the existence",,,,,,,
+of a unique solution for c. This can be easily seen by observing,,,,,,,
+"the matrix N = (n , · · · ,n )T1",,5,", namely,",,,,
+" N =  ",,,0 no3  .ns4 0 0,,,0 0 0 0,,,,nt1 n n nt4 t2 t3,,,,,,0 ni3 0 0,,,,0n 0o2 ,,,
+"",,,ns5,,,nr5,,,,nt5,,,,,,ni5,,,,no5,,,
+Note that,the determinant |N|,"satisfies |N| > 0,",since,by
+rearranging,the columns,"of N, we",can make it a triangular,
+matrix.,,,,
+To make,this,approach more,"robust, our implementation",
+uses multiple queries,,for each qi,and finds the best-fitting of,
+c. This is done by picking different,,,relations R and different,
+values for the a,,in the predicates of the form R.A < a.,,
+B. Cardinality Refinement,,
+"As mentioned in the introduction,",traditionally,cardinality
+estimation has had to satisfy strict,performance,constraints
+because it is done for every plan considered by the optimizer.,,
+This has led to compromises that may,produce inaccuracies,
+in estimates that are too large for run time estimation.,,
+Our goal is to refine the cardinality,estimates,for the
+"plan chosen by the optimizer. Clearly,",this will increase,the
+"overhead of the optimization phase. However,",the key insight,
+here is that because the refinement procedure,only,needs to
+"be performed once per query, rather",than once per,"plan, we"
+can afford to spend more time than is possible for traditional,,
+cardinality estimation.,,
+C. A Sampling-Based Approach,,
+"In principle, any approach that can",improve,cardinality
+estimation can be applied. We use a,generalized,version of
+the sequential-sampling estimator proposed,in [14],for the
+following two reasons:,,
+"• It incorporates a tunable trade-off between efficiency (i.e.,",,
+"the number of samples taken) and effectiveness (i.e.,",,the
+precision of the estimates);,,
+"• It can simultaneously estimate cardinalities",for,multiple
+operators in the query plan.,,
+"In this paper, we extend the framework",in [14],in the
+following two aspects:,,
+"• The estimator described in [14]",is for join queries.,We
+generalize the framework to queries with arbitrary num-,,
+ber of selections and joins. We prove that,this extension,
+"preserves the two key properties,","namely, unbiasedness",
+"and strong consistency, of the original estimator.",,
+"• The framework described in [14]",uses random,disk ac-
+"cesses to take samples. In comparison,",we,propose to
+"take samples offline, store them",as materialized,"views,"
+and directly use them at runtime. This greatly reduces the,,
+runtime overhead and requires very,minimal,changes to
+"the database engine (e.g., a few hundred lines of C code",,
+in the case of PostgreSQL). We,further show,that this
+offline sampling preserves the semantics,of the,original
+online sampling.,,
+We next first describe the estimator,in its generalized,"form,"
+and then describe our cardinality refinement algorithm and its,,
+implementation details.,,
+D. The Estimator,,
+Let D be a database consisting of K,"relations R1,","..., RK ."
+Suppose that Rk is partitioned into mk,blocks each with size,
+"Nk, namely, |Rk| = mkNk. Consider the two basic relational",,
+operators: selection σF (F is a boolean formula representing,,
+"the selection condition), and cross-product ×.","For σF ,",we
+define the output of an input block B,to be σF (B).,"For ×,"
+we define the output of the two input,blocks B,and B′ to
+be B ×B′. Instead of estimating the cardinality of the output,,
+"relation directly, the estimator will estimate",the selectivity,of
+"the operator, which is defined as the output cardinality divided",,
+by the,input cardinality.,"Specifically,",the,selectivity,of,the
+selection,operator σF,is ρR = |σF (R)|/|R| where R,,,is,the
+"input relation. Moreover, the selectivity of σF",,,,on a particular,,
+block B,of R is ρB = |σF (B)|/|B|.,On,the,"other hand,",,the
+selectivity,of the cross-product,operator ×,,is always,1. It,is
+then straightforward,to obtain,the output cardinality once we,,,,
+know the selectivity of the operator1.,,,,,,
+"In the following, without loss of generality, we will assume",,,,,,
+that the,query considered,"is over relations R1,",,"..., RK ,",,and
+"we use the notation R = R1 × · · · ×RK . Let B(k, j) be the",,,,,,
+j-th block,of relation k,"(1 ≤ j ≤ mk,",and 1 ≤ k ≤ K).,,,
+"We use B(L1,i , ..., LK,i",1,") K to represent B(1, L",,"1,i ) × · · · ×1",,
+"B(K,LK,i","), K where B(k, Lk,i )",is kthe,block,(with,index,
+"Lk,i k )",randomly picked,from the relation R,,k in the ik-th,,
+"sampling step. Moreover, we use the notation Bi",,,,if i1 = i2 =,,
+"· · · = iK = i.",,,,,,
+Lemma 1:,"Consider σF (R). Let B1, ..., Bn be a sequence",,,,,
+of n random,samples,(with replacement)[ from],,R.,Define,
+"ρB = |σF (Bi)|/|Bi| (1 ≤ i ≤ n). Then E ρB i",,,,= ρ i R,.,
+Proof:,We have,,,,,
+"",,∑K m∑k,,,,
+"","ρR = ∏ |σF (B(k, j))||σF (R)| |R|",k=1 j=1= Kk=1 mkNk,,.,,
+Since,,,,,,
+"","∏|σF (B(k, j))|k=1 j=1E [∣ ∣ σF (Bi)",∣] ∣ = ∑K m∑kK,,",",,
+"",,k=1 mk,,,,
+we thus have,,,,,,
+"[ ]",E [∣ σF (Bi),"∣] k=1 j=1∑K m∑k |σF (B(k, j))|",,,,
+E ρB = ρi,= ∏ K,= ∏ K,,,R.,
+"",k=1 Nk,k=1 mkNk,,,,
+Define,,∑n1,,,,
+"",,ρ̃R = ρB .,,,,
+"",,n i,,,,
+"",,i=1,,[ ],,
+Then it,is easy to see,from Lemma,1 that E ρ̃R,,= ρR.,
+"Moreover,",since the random,variables ρB[,by ]thei,"are i.i.d.,",,
+"strong law of large numbers, we have Pr",,,,lim ρ̃R = ρR,,=
+"",,,,n→∞,,
+1. We summariz[e th]is result,,in the f[ollowing lemma]:,,,,
+Lemma 2: E ρ̃R,"= ρR, and Pr",lim ρ̃R = ρR,,= 1.,,
+"",,n→∞,,,,
+Lemma,2 can be,generalized to,queries,with arbitrary,,
+number of selections and joins:,,,,,,
+1Note,that the input cardinality,is already known,,before the estimation,,
+procedure runs. It is simply the product of the cardinalities of the underlying,,,,,,
+relations,that are input to the,"operator, which can",be,directly obtained,from,
+the statistics stored in system catalogs.,,,,,,
+and [The]orem 1:,joins,"over R, Let q[be",and,any let ρq,query ]involving,be,the,,selectivity,only,of q.,selections,Then
+E ρ̃q,"= ρq , and Pr",,lim ρ̃q = ρq,,,,,= 1.,,,,,
+"",,,n→∞,,,,,,,,,,
+"",Proof:,The proof is easy by noticing that q can be written,,,,,,,,,,,
+as its,normal,form,[2]: σF (R).,,,We,,then,apply,Lemma,,,1 to
+complete the proof.,,,,,,,,,,,,,
+"In statistical terminology, the estimator ρ̃q",,,,,,,,,"is unbiased, and",,,,
+"strongly consistent for ρq: the more samples we take, the closer",,,,,,,,,,,,,
+"ρ̃q is to ρq . This gives us a way to control the trade-off between",,,,,,,,,,,,,
+the estimation accuracy and the number of samples we take.,,,,,,,,,,,,,
+The,estimator,we,just,described,,,,takes,samples,,,from,each
+relation uniformly and independently (called independent sam-,,,,,,,,,,,,,
+"pling [14]). Therefore, after n steps, we have n observations in",,,,,,,,,,,,,
+"total. In [14], the authors further discussed another alternative",,,,,,,,,,,,,
+called,cross-product,,sampling.,,,The,,idea,"is that,",,at,the i-th,
+"step,",assuming,the K,,blocks,,taken,,,from the K,,,relations,
+"are B(1, L1,i),",,"..., B(K,LK,i),",,,,we,,can,actually,,,join,each
+"B(k, Lk,i) with",,"each B(k′, L",,,"k′,i′)",,such,,that 1 ≤ i ≤ i,,,′,and
+k′ = k,(note,that,in the,case,,of,independent,,,"sampling,",,,we
+only,join among the blocks with i′ = i).,,,,,,,,"In this way, we can",,,,
+obtain nK,,observations after n steps.,,,,,,,,,,,
+Define,,,,,,,,,,,,,
+"",,,n,,n,,,,,,,,
+"",,cp 1,∑,,∑,,,,,,,,
+"",ρ̃R =,n K,,· · ·,,ρ,B(L,"1,i1",",··· ,L","K,iK",).,,(2)
+"",,,i1=1,iK=1,,,,,,,,,
+Fr[om ]Lemma,,"1, it",is,clear,that,,cpρ̃R,,is still,"unbiased,",,,"i.e.,"
+cpE ρ̃R,= ρR.,"However,",,since,,now,,the ρB(L,,"1,i 1",",··· ,LK,i",,)K’s
+"are no longer independent, we cannot directly apply the strong",,,,,,,,,,,,,
+law,of large,numbers,to,show,,the,strong,,consistency,,,of,"cpρ̃R ,"
+although it still [hold]s here:,,,,,,,,[,,,,],
+Lemma 3:,,cpE ρ̃R cp,"= ρR, and Pr",,,,,n→∞,lim ρ̃ R,= ρR,,= 1.,
+"",Proof:,The proof,,idea,is,briefly,,,sketched,in,,Appendix,
+D of,[14].,"Define X(i, j) = 1",,,,if,,the,block,we,,take,from
+the,relation R1,in,the i-th,,sampling,,,,"step is B(1, j),",,,,and
+"X(i, j) = 0",,"otherwise,",,where 1 ≤ j ≤ m1.,,,,,,Define Xi =,,,
+"(X(i, 1), ..., X(i,m1)).",,,,Since,,we,sample,,with,"replacement,",,,
+"X1,","..., Xn are i.i.d. ran",,,,,,,,,,,,
+tion,,,[dom] vectors with (common) expecta-1,,,,,,1,,,,
+"",,μX = E Xi,,,= (,,,", ...,",).,,,,
+"",,,,,,m1,,,m1,,,,
+Let,,,,,,,,,,,,,
+"",,1 ∑,n,,,,,,,,,,
+"",X̄n =,,"Xi = (X̄(n, 1), ..., X̄(n,m1)),",,,,,,,,,,
+"",,ni=∑1,,,,,,,,,,,
+where,"X̄(n, j) =","i=1 X(i, j). T]hen by the strong law ofn1[",n,,,,,,,,,,
+"large numbers, Pr",,,lim X̄n = μX,,,,,= 1.,,,,,
+"",,,n→∞,,,,,,,,,,
+"On the other hand, de∑finen",,,∑n1,,,,,,,,,,
+"","Y (n, j) =",n K,− 1,· · ·,,,,"ρB(j,L","2,i 2 ,...,L",,"K,i",")K,",
+"",,,i2=1,,,iK=1,,,,,,,
+"and Yn = (Y (n, 1), ...[, Y (n] ,m1)). We have",,,,,,,,,,,,,
+"",,μY = E Yn,,"= (ρ1, ρ2, ..., ρm ),1",,,,,,,,,
+where,,,,,,,,,,,,
+"ρj =",∏ K 1,,∑m2,,· · ·,∑mK,ρ,"B(j,i2,...,i K)",,.,,
+"",k=2 mk i2=1,,,,,iK=1,,,,,,
+Note that we can now write Equation (2) as,,,,,,,,,,,,
+"",,,,∑m1,,,,,,,,
+cpρ̃R = X̄n ·Yn =,,,,,,"X̄(n, j)Y (n, j).",,,,,,
+"",,,,j=1 [,,,,,,,],
+Our next goal,is to,show,that Pr,,,lim Yn = μY,,,,,,= 1. If
+"",,,,,,n→∞,,,,,,
+"this is true, then w[e have",]cpPr,lim ρ̃,= μX · μY,,,,,= 1.,,,,
+"",,n→∞,R,,,,,,,,,
+Since,∑mK1,∑m1,1,,,∑m2,,,,,,
+"μX · μY = =",m ∏ 1 j=1 K,mK1,∏ K k∑=2 mk i∑2=1 m1,,· · ·,,· · · ρ,"ρiK=1B(i1,i2,...,i","B(j,iK)",,,"2,...,iK)= ρ R,"
+"",k=1 mk i1=1,,,,,iK=1,,,,,,
+the strong consistency of[ cpρ̃R,,,,is therefore p]roved.,,,,,,,,
+We now show that Pr,,,lim Yn = μY,,,,,= 1 by induction,,,,
+"",,,n→∞,,,,,,,,,
+"on K. When K = 2,",,,,,,,,,,,,
+"",,,1 ∑,,n,,,,,,,
+"","Y (n, j) =",,,,,"ρB(j,L",,.,,,,
+"",,,n,,,,,"2,i2)",,,,
+"",,,,i2=1,,,,,,,,
+"Not[e dom Pr] lim Y (n, j) = ρj n→∞ variables. that, with",a So,"fixed] j, by","the = 1,","the ρB(j,L strong",and,law hence Pr,,"2,i2of )’s lar[ge are",lim Yn =n→∞,i.i.d.,"numbers,",ran-
+"μY = 1. Now",assume,,that the,,strong,,,consistency,,,holds,for
+K relations. Consid∑er the ca∑se of K + 1,1,n,n,,,,,relations:,,,,
+"Y (n, j) =",nK,,· · ·,,,"ρB(j,L",,"2,i2 ,...,LK+1,i",,,K+1,).
+"",i2=1,,iK+1=1,,,,,,,,,
+Define,,,,,,,,,,,,
+"",1,,∑n,,∑n,,,,,,,
+"Y (n, j, i2) =",n K −,1,· · ·,,,"ρB(j,L2,i",,"2 ,...,LK+1,i",,,,).K+1
+"",,,i3=1 iK+1=1,,,,,,,,,
+"By induction hyp[othesis,",,,,,,,,],,,,
+Pr,"lim Y (n, j, i2) = ρj,i",,,,,,,"= 1,",,,,
+"",n→∞,,,,,,,2,,,,
+where,,,,,,,,,,,,
+"ρj,i 2 = ∏",m∑K+11K+1,,∑m2,· · ·,,,,"ρB(j,i 2,...,iK+1)",,,,.
+"",k=3 mk i3=1,,,,iK+1=1,,,,,,,
+Since,,,∑n1,,,,,,,,,
+"","Y (n, j) =",,,,,"Y (n, j, i2),",,,,,,
+"",,,n,,,,,,,,,
+"",,,,i2=1,,,,,,,,
+and for,"fixed j, Y (n, j, i2) are i.i.d.",random,,variables,with
+"(co[mmon) me]an",m21 ∑,,,,
+"E Y (n, j, i2)","= ρj,i",,,,
+"",m 2 i2=12,,,,
+"",= ∏ K+1 1 ∑m2,· · ·,mK+1∑,"ρB(j,i2,...,iK+1)",
+"",k=2 mk i2=1,iK+1=1,,,
+"","= ρj ,",,,,
+we hence have,[,],,,
+"","Pr lim Y (n, j) = ρj","= 1,",,,
+"",n→∞,,,,
+by applying,the strong law of large,numbers,,again.,This
+completes the proof of the lemma.,,,,,
+"Therefore,",Theorem 1 still holds,in,the case,,of cross-
+product sampling. It is also shown that cross-product sampling,,,,,
+is always,superior to independent,sampling,because,,of its
+lower sample,variance (see Theorem,2,of [14]).,,"Therefore,"
+our cardinality,refinement algorithm,discussed,,next,is based
+on cross-product sampling instead of independent sampling.,,,,,
+E. The Cardinality Refinement Algorithm,,,,,
+There are several considerations when designing our refine-,,,,,
+ment algorithm based on the sampling-based estimator.,,,,,
+"First,",the estimator needs to access,disk,to,take,samples.
+"However, since samples should be randomly taken, this means",,,,,
+significant random reads may be required during the sampling,,,,,
+"phase, which",may be too costly in,practice.,,To,overcome
+"this issue,",as has been suggested in,previous,applications,,of
+sampling,"in DBMS (e.g., [23]), we",take,samples,offline,and
+store them as materialized views in the database. We found in,,,,,
+our experiments that,the number of samples required is quite,,,,
+small and therefore can be cached in memory during runtime.,,,,,
+"Second,",the estimator we discussed,,so far,focuses,on
+estimating,"the selectivity (or equivalently,",,cardinality),,for a
+"single operator. However, in practice, a query plan may contain",,,,,
+more than,"one operator, and for our",purpose,of,refining,the
+"cost estimates of this plan, we need to estimate the cardinality",,,,,
+for each,operator. Another good property,,of,the,estimator
+"is that,",for a query plan with a fixed,join,"order,",,which is
+"always the case when refinement is performed, we can estimate",,,,,
+all selection,and join operators in,the plan,simultaneously.,,
+"Consider,","for example, a three-way",join,query q = R1 ◃▹,,
+R2 ◃▹ R3.,We need to estimate,the,cardinality,,for both
+"q′ = R1 ◃▹ R2 and q. However, after we are done with q′, we",,,,,
+"can estimate for q by directly evaluating q′ ◃▹ R3. This means,",,,,,
+we can,estimate the cardinality for,each,operator,,by simply
+invoking the query plan q over,the sample relations and then,,,,
+apply the estimator,to each operator (see Theorem 2 below).,,,,
+Theorem 2:,Let q = σF (R1 × · · · × RK),,be,an,arbitrary
+query with,only selections and joins.,,For every,,subquery
+qi = σ[F (Ri selection condition,"1 × · · · ×only]Ri) involving R1, (1 ≤","i ≤ K, ..., Ri), E ρ̃q",and[ Fi] is,,the= ρi qi
+and Pr,lim ρ̃q = ρq n→∞i i= 1.,,,,
+"",Proof: The proof is simply applying Theorem 1 to each
+qi.,
+"Third, while the estimator discussed above is both unbiased",
+and,"strongly consistent, it only works for queries involving"
+selections,"and joins. In practice, SQL queries can contain"
+additional,operators. A particularly common class of such
+"operators we encountered in TPC-H queries is aggregates, for",
+which we need to estimate the number of distinct values in the,
+input,relation. Aggregates basically collapse the underlying
+data,"distribution, so the estimator cannot work for queries"
+containing,"aggregates. As a result, we can only apply the"
+sampling-based,estimator to the part of the query plan that
+does,"not involve aggregates. For aggregate operators, we"
+simply,rely on PostgreSQL’s models for estimating output
+cardinalities.,"However, note that, since the refinement phase"
+may change,"the input estimates for the aggregate, the output"
+estimates for the aggregate may change as well. We observed,
+in our experimental evaluation (see Section V) that the current,
+approach,already leads to promising prediction of execution
+time,in practice. We leave the problem of further integrating
+"state-of-the-art estimators (e.g.,",the GEE estimator in [6]) for
+estimating the number of distinct values as future work.,
+Our,cardinality refinement algorithm is illustrated in Al-
+gorithm,"1. For the input query q, we first call the optimizer"
+to,obtain its query plan Pq (line 30). We then modify Pq
+by,replacing the relations it touches with the corresponding
+sample,"relations (i.e., materialized views), and run Pq over"
+the,"sample relations (line 31 to 34). After that, we call the"
+procedure RecomputeCardinality,to refine the cardinality
+estimation for each operator,in Pq (line 36).
+The,procedure RecomputeCardinality (line 11 to 27)
+works,as follows. It first invokes EstimateCardinality on
+the,child operators (if any) of the current operator O (line
+12,"to 17). It then checks the flag HasAgg, which indicates"
+whether O has any descendant,operator that is an aggregate.
+If,"the flag is set, then it simply calls the optimizer’s own"
+"model to do cardinality estimation for O (line 18 to 19), since",
+our,"estimator refinement cannot be applied in this case, as"
+"discussed above. If, on the other hand, the flag is not set, then",
+it further,"checks whether O is itself an aggregate. If so, it"
+"again calls the optimizer’s cardinality estimation model for O,",
+and,"sets the flag HasAgg (line 21 to 23). If not, it invokes"
+EstimateCardinality,to estimate the cardinality of O (line
+25). Note that due to the order that EstimateCardinality,is
+"invoked, the estimator is applied to each operator in a bottom-",
+up,manner. This guarantees that the input cardinality of any
+operator,will be estimated after its child operators (if any).
+While,this is not necessary if we only need to refine the
+"cardinalities, it is necessary since we need to further estimate",
+based,"on the cardinality (for example, the number of pages"
+"accessed),",which enforces the same bottom-up ordering here
+since,the cost of an operator covers the cost of its child
+operators as well,(recall Example 3 and 4).
+The procedure EstimateCardinality,(line 3 to 9) imple-
+ments,the estimator. GetSubP lan returns the subtree PO of
+lgorithm 1: Cardinality Refinement
+"Input: q, a SQL query"
+"Output: Pq , query plan of q with refined cardinalities"
+HasAgg ← False;
+Estima∏teCardinality(O):PO ← GetSubP lan(O);
+N ← Es ← CardinalityBySampling(O);|Rss ∏Rs∈SampleRelations(P O) |;
+NO ← RO∈Relations(P ) |RO|;O
+EO ← N · EsO ;Ns
+Treat EO as the cardinality estimate for O;
+RecomputeCardinality(O):
+if O has left child Olc then
+EstimateCardinality(Olc);
+end
+if O has right child Orc then
+EstimateCardinality(Orc);
+end
+if HasAgg then
+Use optimizer’s model to estimate for O;
+else
+if O is aggregate then
+Use optimizer’s model to estimate for O;
+HasAgg ← True;
+else
+EstimateCardinality(O);
+end
+end
+Main:
+Pq ← GetP lanFromOptimizer(q);
+foreach R ∈ Relations(Pq) do
+Replace R with its sample relation Rs;
+end
+Run the plan Pq over the sample relations;
+O ← GetRootOperator(Pq);
+RecomputeCardinality(O);
+return Pq;
+Theorem 3: The,procedure,EstimateCardinality esti-,
+mates the cardinality,of the,operator O according to,the
+semantics of cross-product sampling.,,,
+Proof: Suppose that the query q = σF (R1 × · · · ×RK).,,,
+Consider the following,tuple-level,partitioning scheme:,for
+"each relation Rk (1 ≤ k ≤ K),",,treat each tuple of Rk,a
+"single partition. In this case, mk = |Rk| and Nk = 1. Since",,,
+Es = |σ |∑Rs1| F (R1 × · · · ×RsK)|,s|∑RsK |,,
+"= · · ·","|σF ({t1,i } × · · · × {tK,i })|,1",K,
+i1=1,iK=1,,
+"where tk,i taken in the ik-thkis the tuple (i.e∏., block) from Rk",,,
+"sampling step K∑, and Ns ∑= |Rs","k=1 |Rk|, we estimates",s,
+"=1 |∏σF ({t1,i } × · · · × {tK,i })|ρ̃ = q E s = i =1 1 1| · · ·",|RK |i K,1 K,.
+N s,,K|Rsk=1 k|,
+This has the same,semantics as,the cross-product estimator,
+defined in Equation,"(2), except",that here the |Rsk| may,be
+different for different Rk.,It,is straightforward to extend,
+Equation (2) to the case where different relations have different,,,
+"sampling steps (i.e.,","different n’s),",and Lemma 3 (and hence,
+Theorem 1) still holds in this case.,,,
+"",V. EVALUATION,,
+"In this section, we",describe,our experimental settings,and
+report our results.,,,
+A. Experimental Settings,,,
+We implemented,Algorithm,1 inside PostgreSQL 9.0.4,
+by modifying the,query optimizer.,"In addition, we added",
+instrumentation code to the optimizer to collect the input cardi-,,,
+nalities for each operator. Our software setup was PostgreSQL,,,
+"on Linux Kernel 2.6.18,",and we,tested our method on both,
+TPC-H 1GB and 10GB databases.,,,
+Our experiments were conducted on two different hardware,,,
+configurations:,,,
+"• PC1: configured",with a 1-core,2.27GHz Intel CPU,and
+2GB memory;,,,
+"• PC2: configured with an 8-core 2.40GHz Intel CPU and",,,
+16GB memory.,,,
+We randomly drew,10 queries,from each of the 21 query,
+"templates2, and we",ran each query,5 times. Our error metric,
+is computed based on the mean execution time of the queries.,,,
+We cleared both the filesystem and DB buffers between each,,,
+run of each query.,,,
+Since the original TPC-H database generator uses uniform,,,
+"distributions, to test the robustness of different approaches on",,,
+"different data distributions,",we,also used a skewed TPC-H,
+database generator,[1]. This database,generator populates,a
+TPC-H database using,a Zipf,distribution. This distribution,
+has a parameter z that controls the degree of skewness. z = 0,,,
+2We excluded the template Q15 because it creates a view before the query,,,
+"runs, which is not supported by our current",,implementation of Algorithm 1.,
+the query plan with the current operator O as the root. Ns is
+the product of the cardinalities of the sample relations involved
+"in PO, and Es is the exact output cardinality of O when"
+"the plan is evaluated over sample relations. Therefore, the"
+"estimated selectivity is of ONsEs , and the output cardinality"
+"over the original relations is then N O · theNsEs, where NO is"
+product of the cardinalities of the original input relations. In
+"Theorem 3, we further show that EstimateCardinality is a"
+particular implementation of the estimator conforming to the
+"semantics of cross-product sampling, with a special tuple-level"
+"partitioning scheme, where each block contains only a single"
+tuple of the relation.
+"generates a uniform distribution, and as z increases,",the data
+becomes more and more skewed. We created skewed databases,
+generated using z = 1.,
+B. Calibrating Cost Units,
+We use the approach described in Section III to,generate
+calibration queries. The calibrated values for the 5 PostgreSQL,
+optimizer parameters on PC1 and PC2 are shown in,Table I
+"and II, respectively. Except for rand page cost, the cost units",
+show very small variance when profiled under different,rela-
+tions.,
+Calibrating the rand page cost is more difficult.,As dis-
+"cussed in Section III-B, achieving purely random reads",in a
+"query appears difficult in practice. In addition, the number of",
+random pages accessed as estimated by optimizer,is based
+on statistics about correlations between the order,of keys
+stored in the unclustered index and their actual order,in the
+"corresponding data file. Therefore, there is some",inherent
+uncertainty in this estimation. It is interesting future,work
+to see whether the rand page cost could be calibrated,more
+accurately with different methods than the one described,in
+this paper.,
+values of the cost units only depend on the specific hardware
+"configuration. After the cost units are calibrated, they can be"
+used as long as the hardware configuration does not change.
+"On the other hand, machine-learning-based approaches usually"
+need to collect new training data and rebuild the predictive
+model if the underlying data distribution significantly changes.
+C. Prediction Results
+We evaluated the accuracy of prediction in terms of the
+"mean relative error (MRE), a metric used in [4]. MRE is"
+"defined as1 ∑M | predTi − T acti | ,"
+M T act
+i=1 i
+"where M is the number of testing queries, predTi and Ti actare"
+"the predicted and actual execution time of the testing query i,"
+respectively.
+We compare the prediction accuracy of our approach
+with several state-of-the-art machine-learning-based solutions:
+"Plan-level modeling with SVM [4], Plan-level modeling with"
+"REP trees [28], and Operator-level modeling with Multivariate"
+Linear Regression (MLR) [4]. We use the same set of features
+as described in [4]. We focus on the settings of the so-called
+dynamic workload in [4]. The idea of plan-level modeling
+"was also tried in [11], and the authors chose to use Kernel"
+Canonical Correlation Analysis (KCCA) [5] instead of SVM
+as the machine-learning approach. We do not compare our
+"techniques with theirs, for it has been shown in [4] that both"
+the plan-level and operator-level modeling approach of [4] are
+superior to the KCCA-based approach for dynamic workloads.
+"To generate a dynamic workload, we conducted the follow-"
+ing “leave-one-template-out” experiment as in [4]. Among the
+"N TPC-H query templates, we chose one template to generate"
+"the queries whose execution time is to be predicted, and the"
+other N-1 templates were used to generate the training queries
+used by the machine learning methods to train their predictive
+models.
+"Figure 2 shows the results on the uniform (i.e., z = 0) 1GB"
+"TPC-H database. As presented in [4], operator-level modeling"
+requires that the testing queries do not contain operators not
+used by the training queries. Since some TPC-H templates
+include specific operators not found in the other templates
+"(e.g., hash-semi-join), we excluded these templates from our"
+experiments. The same argument applies to TPC-H templates
+"containing PostgreSQL-specific structures (i.e., INITPLAN"
+and SUBQUERY). The authors of [4] also excluded these
+"queries for the same reason. However, we note here that this"
+is a problem due to the particular choice of the workload and
+"database system, not due to the operator-level modeling itself."
+"If TPC-H were a more varied workload, we would not have"
+"this restriction. For example, if it had multiple queries that"
+"used the hash-semi-join operator, we could have incorporated"
+queries with that operator in our experiments. This leaves
+11 TPC-H templates participating in the dynamic workload
+experiment when operator-level modeling is leveraged (see
+Figure 2(b)).
+ACTUAL VALUES OF POSTGRESQL OPTIMIZER PARAMETERS ON PC1
+Note that,the,default,settings,of,the,parameters,fail,to
+"accurately reflect the actual relative magnitudes. For example,",,,,,,,,
+"on PC1, the ratio of calibrated cpu tuple cost to seq page cost",,,,,,,,
+is about 0.003 instead of 0.01.,,,,,,,,
+"Clearly, the overhead of this profiling stage depends on how",,,,,,,,
+many calibration,,queries,we use.,In,our,experiments,on,the
+"TPC-H database,",,we used,the 5 largest,,relations,as the R,,in
+SELECT * FROM R,,"and SELECT COUNT(*) FROM R,",,,,,,
+respectively.,"For SELECT * FROM R WHERE R.A < a,",,,,,,,
+we used the,largest,relation,"(lineitem),",,,and generated,,10
+queries where,the predicate R.A < a had different,,,,,selectiv-,,
+ities in each.,Under,this,"setting,",the,profiling,stage,usually,
+finishes in less,than,"an hour, which",,is,substantially,less,than,
+the long training stage of machine-learning-based approaches.,,,,,,,,
+"Moreover, our profiling stage was conducted on top of",,,,,,,,the
+uniform TPC-H,,database.,Note that,,we,do not need,to run,
+it again for the skewed TPC-H database. This,,,,,,is because,,the
+using the,model,trained,with,the,other,"templates,",then,there
+is little hope for us to observe good predictions.,,,,,,,,
+"Third, machine-learning approaches are sensitive to the set",,,,,,,,
+of queries used in training. By comparing Table III and IV in,,,,,,,,
+Appendix,"A, we",can see,that,the,prediction,errors,for,some
+queries fluctuate,,dramatically,,when,different,sets,of training,
+queries are,used3.,"For instance, EREP",,,,for Q8 is,0.44,when
+20 templates,are,used in,training,,(as in,"Figure 2(a)),",,but it
+will increase,to 2.87 when only 10 templates are used (as,,,,,,,in
+Figure 2(b)). Picking a set of proper training queries hence is,,,,,,,,
+critical in,practice,when,using,machine-learning,,approaches.,,
+"However,",it seems,quite,difficult,,in the,environment,,when
+workload is not known in advance.,,,,,,,,
+Figure,4 further,presents,the,results,,on the skewed,,TPC-
+"H 1GB database,",,and the,details,,for,each query,template,
+are presented,from,Table,VII,to,Table,X in Appendix,,B.
+"As expected,",when,data,becomes,,"skewed,",the,cardinality,
+estimates,from the,optimizer,,become,"inaccurate,",,and hence,
+"the predictive power is weakened. However, by leveraging the",,,,,,,,
+"sampling-based cardinality correction, the prediction accuracy",,,,,,,,
+is improved.,"Moreover,",,more,samples,,usually means,,better
+prediction,"accuracy,",as,long,as,the overhead,on,sampling,
+is acceptable,(see,Section,V-D).,,We note,that the,sampling,
+overhead,can be,up to,20%,on,this data,set. As,we,will
+"see, this",can be,viewed,as a,problem,,that arises,on,small
+"data sets, as the overhead due to sampling for the 10GB data"
+"set is much lower. On the other hand, the performance of"
+machine-learning based approaches becomes even worse. This
+is perhaps partially because of the worse distortion of the
+assumption that training and testing queries should be similar.
+Similar results on the TPC-H 10GB database are observed
+"in our experiments, as shown in Figure 5 and Figure 6. We also"
+include details of the errors on each template from Table XI
+"to Table XIV in Appendix C for uniform data, and from Ta-"
+"ble XV to Table XVIII in Appendix D for skewed data. Here,"
+"to make the overall experiment time controllable, as done"
+"in [4], we kill the query if it runs longer than an hour. This"
+leaves us with 18 templates participating in the evaluation. We
+"tested sampling ratios f = 0.01, 0.02, 0.05, 0.1, and present"
+"the results of f = 0.02 and f = 0.05, for space constraints."
+"Note that, while the database size scales up by a factor of 10,"
+the required absolute number of samples to achieve predictions
+close to the ideal case (compare E0.05s and Et in the figures)
+remains almost the same. We need 0.05 × 10GB = 0.5GB
+"samples here, while we need 0.3×1GB = 0.3GB samples in"
+"the case of 1GB database. Therefore, the additional overhead"
+of taking samples becomes ignorable when the database is
+larger (see Section V-D).
+D. Overhead of Sampling
+Figure 7 shows the additional runtime overhead due to
+sampling for the 1GB TPC-H database. Here rfs is defined
+"as rfs = Ts/T , where Ts and T are the time to run the queries"
+"over the sample tables and original tables, respectively, and f"
+"is the sampling ratio as before. For each sampling ratio, we"
+report the average rfs as well as the standard deviation (shown
+with the error bars) over the participating TPC-H templates.
+We refer the readers to Appendix E (from Table XIX to
+Table XXII) for the details of the overhead for different query
+templates.
+"We can see that for the sampling ratio f = 0.3, which"
+allows us to achieve close prediction accuracy to what if the
+true cardinalities were used on both the uniform and skewed
+"data, the average additional runtime overhead is around 20%"
+of the actual execution time of the query. Note that for
+"query optimization, 20% is prohibitively high. For example,"
+it means that we can only consider 1/20% = 5 plans during
+optimization before the estimation cost dominates the query
+"execution time, since sampling should be invoked for every"
+"query plan considered. But for our purposes, where we are"
+"trying to estimate the running time of a single query plan,"
+this amount of overhead may be acceptable. Perhaps more
+"importantly, this overhead drops dramatically when we move"
+to the 10GB data set.
+Figure 8 further presents the results over 10GB TPC-
+"H database. Again, the details for each query template are"
+"presented in Appendix F, from Table XXIII to Table XXVI. It"
+confirms that the additional overhead introduced by sampling
+"is even smaller, compared with the overhead of running the"
+original query. For,the,case,,where,good,prediction,can,be
+"achieved (i.e., f = 0.05,",,,see,Figure,5 and,"Figure 6),",the,ad-
+ditional overhead is below 4% on average. This demonstrates,,,,,,,,
+the practicality of incorporating,,,,sampling,for,the purpose,,of
+query time prediction.,,,,,,,,
+"",VI.,RELATED WORK,,,,,,
+Query optimizers,have,,built-in,cost,models,that,provide,
+cardinality/cost estimates,,,for,a given,query.,There is,a,lot
+of previous work,on this,,"topic,",including,,methods,based,
+"on sampling (e.g., [16],",,,"[20]),",methods,based,on histograms,,
+"(e.g., [17]), and methods based on machine learning (e.g., [12],",,,,,,,,
+"[25]). However, the",purpose,,of,these,estimates,is to help,,the
+"optimizer pick a relatively good plan, not to predict the actual",,,,,,,,
+execution time of the,query.,,,"Therefore,",these,estimates,need,
+not to be very accurate as long as the optimizer can leverage,,,,,,,,
+"them to distinguish good plans from bad ones. As shown in [4],",,,,,,,,
+"[11], without proper calibration, directly leveraging these cost",,,,,,,,
+estimates cannot provide good predictions of execution time.,,,,,,,,
+Previous work has,explored,,,the issue,of,calibrating,opti-,
+"mizer parameters, for",different,,,purposes,such,as query,opti-,
+"mization in heterogeneous DBMS [9], DB resource virtualiza-",,,,,,,,
+"tion [24], and storage",type,,selection,,[29].,To the best,of our,
+"knowledge, we are not aware of any work that tries to predict",,,,,,,,
+the execution time,of SQL,,queries,,based,on calibrating,,the
+cost models of query optimizers.,,,,,,,,
+Another related research,,,direction,,is query,progress,indi-,
+"cators [7], [18], [19],",[21].,,The,task,of a,progress indicator,,
+is to dynamically monitor,,,the,percentage,,of work that,has,
+been done so far for the query. The key difference from query,,,,,,,,
+execution time prediction,,,is,that progress,,indicators,usually,
+rely on runtime statistics obtained during the actual execution,,,,,,,,
+"of the query, which",are,,not,available,if,the prediction,,is
+restricted to be made before query execution. A query running,,,,,,,,
+time predictor could,be,,useful,in,providing,the very,first,
+estimate for a progress,,indicator,,(one,used,before the,query,
+starts executing).,,,,,,,,
+"Quite surprisingly,",the,,problem,of,predicting,actual,exe-,
+cution time of a query,,has,been,specifically,,addressed,only,
+recently [11]. Existing,work,,,"[3], [4],","[10],","[11], [26]",usually,
+employs predictive,frameworks,,,based,on statistical,machine,,
+learning techniques.,,,,,,,,
+"In [11], each query is represented as a set of features con-",,,,,,,,
+taining an instance count and cardinality sum for each possible,,,,,,,,
+operator. Kernel Canonical,,,Correlation,,Analysis,(KCCA),,[5]
+modeling techniques,are,,then,used,to map,the queries,from,
+their feature space,onto,,their,performance,,space. One,main,
+limitation of this approach,,,is,that its,prediction,is based,,on
+taking the average of the k (usually 3) nearest neighbors in the,,,,,,,,
+"training set, which means that the prediction can never exceed",,,,,,,,
+the longest execution,time,,observed,,during,training,stage.,
+"Hence, when the query",,,to be,predicted,,takes significantly,,
+longer time than all,the,"training queries observed,",,,,the model,,
+is incapable of giving reasonable predictions.,,,,,,,,
+"In [4], a similar",idea,of,using,features,extracted,from,,the
+entire plan to represent a query,,,,"is leveraged, and",,the authors,,
+propose to use SVM,instead,,of KCCA.,"However,",,the SVM
+approach still suffers,from,,the same,generalization,,problem.
+"To alleviate this, the",authors,,further,apply this,idea,at the
+operator-level. But from,,,the reported,experimental,,results
+"(both in [4] and Section",,,V of this,"paper), it",seems,that
+operator-level modeling,is,,still quite,vulnerable,to,workload
+changes. Our approach in this paper avoids this generalization,,,,,,
+"problem, for it does not rely on any particular training queries.",,,,,,
+"In [10], the authors",study,,the problem,of predicting,,the
+execution time when,the,query,is concurrently,running,,with
+"the other queries, with a linear multivariate",,,,regression model,,
+to capture the interaction,,between,queries.,Similar,,problems
+in admission control,and,,query scheduling,are,also,studied
+"in [26] and [3], respectively. One key limitation of this line of",,,,,,
+"work is that they all assume a closed-world workload scenario,",,,,,,
+where all possible queries,,,are needed,to be known,,"in ahead,"
+which is hardly to be the case in practice. Although this paper,,,,,,
+does not address the,prediction,,problem,in the,presence,of
+"concurrent query execution,",,,it is interesting,to,see,how to
+extend the techniques here,,,to provide alternative solutions,,,to
+this challenge.,,,,,,
+VII.,,CONCLUSION,,,,
+"In this paper, we studied",,,the problem,of leveraging,,opti-
+mizer’s cost models to predict query execution time. We show,,,,,,
+"that, after proper calibration, the current cost models used by",,,,,,
+query optimizers can,be more,,effective,for predicting,,query
+execution time than reported by previous work.,,,,,,
+"Of course, it is possible",,,that a,new machine,,learning
+"technique, perhaps with",improved,,feature,"selection, will",,out-
+perform the techniques,presented,,here.,On the,other,"hand,"
+further improvements,are,,also possible,in optimizer-based,,
+running time prediction.,Perhaps,,the,most interesting,,aspect
+of this work is the,basic,,question,it raises: should,,query
+running time prediction,treat,,the DBMS,as a black,,box (the
+"machine learning approach),",,,or should,we exploit,,the fact
+that we actually know,exactly,,what,is going on,,inside the
+box (the optimizer based,,,approach)?,We regard,this,paper
+as an argument that the,latter,,approach,"shows promise,",,and
+expect that exploring the capabilities of the two very different,,,,,,
+approaches will be fertile ground for future research.,,,,,,
