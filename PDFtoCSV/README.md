@@ -19,6 +19,7 @@ This process contain five setps:
 * (3) extract regular expressions to extract keywords, 
 * (4) Save list of extracted keywords in a DataFrame and 
 * (5) Save the results in a DataFrame into a CSV file.
+
 The obtained csv contain statements that describe hypothesis and information about CMs and its environment test.
 
 
