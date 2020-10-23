@@ -23,4 +23,3 @@ This process contain five setps:
 The obtained csv contain statements that describe hypothesis and information about CMs and its environment test.
 
 
-![Screenshot](workflow_.png)
