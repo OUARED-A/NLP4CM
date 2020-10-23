@@ -22,7 +22,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 
 # execute the text here as : 
-data1 = pd.read_csv("dataTest.txt")
+data1 = pd.read_csv("Data/dataTest.txt")
 resultat = data1["1"]
 #TARGET : les donnée sortée
 y = resultat.iloc[:].values
